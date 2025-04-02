@@ -67,3 +67,7 @@ data/databases/*
 
 # NLTK data
 nltk_data/
+
+# Logs
+logs/
+*.log
