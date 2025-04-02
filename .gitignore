@@ -56,7 +56,11 @@ dump.rdb
 data/datasets/*
 data/results/*
 data/sample_documents/*
+data/source_documents/*
+data/databases/*
 !data/datasets/.gitkeep
 !data/results/.gitkeep
 !data/sample_documents/.gitkeep
+!data/source_documents/.gitkeep
+!data/databases/.gitkeep
 !data/README.md
