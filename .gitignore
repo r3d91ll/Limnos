@@ -64,3 +64,6 @@ data/databases/*
 !data/source_documents/.gitkeep
 !data/databases/.gitkeep
 !data/README.md
+
+# NLTK data
+nltk_data/
