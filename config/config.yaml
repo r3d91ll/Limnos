@@ -1,0 +1,62 @@
+chunker:
+  type: semantic
+directories:
+  cache: ../cache
+  logs: /home/todd/ML-Lab/New-HADES/logs
+embedder:
+  model_name: nomic-embed-text
+  type: ollama
+embedders:
+  ollama:
+    batch_size: 64
+    max_concurrent_requests: 16
+    use_gpu: true
+input:
+  exclude:
+  - '**/README.md'
+  - '**/LICENSE.md'
+  - '**/.git/**'
+  - '**/node_modules/**'
+  include:
+  - '**/*.pdf'
+  - '**/*.txt'
+  - '**/*.md'
+  - '**/*.py'
+  - '**/*.js'
+  - '**/*.java'
+output:
+  formats:
+    huggingface:
+      dataset_name: rag_dataset
+      enabled: false
+      hf_token: ''
+      include_chunks: true
+      include_embeddings: true
+      include_metadata: true
+      push_to_hub: false
+    pathrag:
+      backend: networkx
+      enabled: true
+      include_metadata: true
+      neo4j_connection:
+        password: password
+        uri: bolt://localhost:7687
+        user: neo4j
+      save_raw_embeddings: true
+      save_raw_text: true
+    vector_db:
+      collection_name: rag_dataset
+      connection:
+        api_key: ''
+        environment: ''
+      dimension: 384
+      distance_metric: cosine
+      enabled: false
+      include_metadata: true
+      type: faiss
+output_dir: /home/todd/ML-Lab/New-HADES/rag_databases/pathrag_redis_gpu_test1_optimized_20250331_203401/
+processing:
+  batch_size: 64
+  max_workers: 16
+  parallel_embedding: true
+source_documents: /home/todd/ML-Lab/New-HADES/source_documents

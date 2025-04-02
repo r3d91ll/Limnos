@@ -1,0 +1,161 @@
+# HADES Modular Pipeline Configuration
+
+# Global settings
+global:
+  log_level: INFO
+  data_dir: ./data
+  cache_dir: ./cache
+
+# Storage configuration
+storage:
+  # Storage type (redis, disk, hybrid)
+  type: redis
+  
+  # Redis storage configuration
+  redis:
+    host: localhost
+    port: 6379
+    db: 0
+    password: null  # Set to your Redis password if needed
+    auto_connect: true
+  
+  # Disk storage configuration
+  disk:
+    base_dir: ./data/storage
+    use_compression: true
+    compression_level: 9
+  
+  # Hybrid storage configuration
+  hybrid:
+    hot_storage: redis
+    cold_storage: disk
+    ttl: 604800  # 7 days in seconds
+  
+  # Document store configuration
+  document_store:
+    type: redis
+    doc_key_prefix: doc:
+    doc_ids_key: document_ids
+  
+  # Chunk store configuration
+  chunk_store:
+    type: redis
+    chunk_key_prefix: chunk:
+    doc_chunks_key_prefix: doc_chunks:
+  
+  # Embedding store configuration
+  embedding_store:
+    type: redis
+    embedding_key_prefix: embedding:
+    chunk_embedding_key_prefix: chunk_embedding:
+    embedding_index_key: embedding_index
+
+# Model configuration
+models:
+  # Embedding model configuration
+  embedding_model:
+    type: vllm  # vllm, local, or openai
+    model_name: answerdotai/ModernBERT-base
+    dimensions: 768  # Dimensions for ModernBERT-base
+    device: cuda  # cuda or cpu
+    batch_size: 32
+    tensor_parallel_size: 1  # Increase for multi-GPU setups
+    max_model_len: 512
+    gpu_memory_utilization: 0.9
+    dtype: half  # half or float
+    trust_remote_code: true
+    auto_load: true
+  
+  # OpenAI embedding model configuration (alternative)
+  openai_embedding_model:
+    type: openai
+    model_name: text-embedding-ada-002
+    api_key: ${OPENAI_API_KEY}  # Will be replaced with environment variable
+    batch_size: 20
+    retry_count: 3
+    retry_delay: 1
+  
+  # Inference model configuration (for future use)
+  inference_model:
+    type: ollama  # ollama, openai, or other
+    model_name: llama3  # Default local model
+    temperature: 0.7
+    max_tokens: 1000
+    auto_load: true
+  
+  # OpenAI inference model configuration (alternative)
+  openai_inference_model:
+    type: openai
+    model_name: gpt-4o
+    api_key: ${OPENAI_API_KEY}  # Will be replaced with environment variable
+    temperature: 0.7
+    max_tokens: 1000
+
+# Ingest pipeline configuration
+ingest:
+  # Document processor configuration
+  document_processor:
+    type: basic
+    custom_extensions:
+      .csv: _process_csv  # Example of custom extension handler
+  
+  # Chunker configuration
+  chunker:
+    type: text
+    chunk_size: 1000
+    chunk_overlap: 200
+    chunk_strategy: sliding_window  # Options: sliding_window, sentence, paragraph
+  
+  # Pipeline configuration
+  pipeline:
+    parallel_processing: false
+    batch_size: 10
+
+# Retrieval pipeline configuration (for future use)
+retrieve:
+  # Query processor configuration
+  query_processor:
+    type: basic
+  
+  # Vector search configuration
+  vector_search:
+    type: redis
+    similarity_metric: cosine
+    top_k: 10
+  
+  # Path finder configuration
+  path_finder:
+    type: basic
+    max_paths: 3
+    max_path_length: 5
+  
+  # Reranker configuration
+  reranker:
+    type: basic
+    rerank_count: 20
+
+# Inference pipeline configuration (for future use)
+infer:
+  # Prompt template configuration
+  prompt_template:
+    type: basic
+    template: |
+      Answer the following question based on the provided context.
+      
+      Context:
+      {context}
+      
+      Question:
+      {query}
+      
+      Answer:
+  
+  # Context assembler configuration
+  context_assembler:
+    type: basic
+    max_context_length: 4000
+  
+  # Response formatter configuration
+  response_formatter:
+    type: basic
+    include_sources: true

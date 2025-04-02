@@ -1,0 +1,25 @@
+# Core dependencies
+numpy>=1.24.0
+tqdm>=4.65.0
+
+# vLLM and dependencies
+vllm>=0.8.2
+torch>=2.0.0
+transformers>=4.30.0
+huggingface-hub>=0.16.4
+accelerate>=0.21.0
+
+# ModernBERT dependencies
+sentencepiece>=0.1.99
+
+# Redis storage
+redis>=4.5.1
+
+# Document processing
+pypdf>=3.15.1
+python-docx>=0.8.11
+markdown>=3.4.3
+
+# Configuration and utilities
+pyyaml>=6.0
+python-dotenv>=1.0.0
