@@ -40,7 +40,12 @@ logs/
 *.log
 
 # Data
-data/
+#data/
+limnos/data/databases/*
+limnos/data/results/*
+!limnos/data/.gitkeep
+!limnos/data/source_documents/.gitkeep
+
 models/
 *.db
 *.sqlite
