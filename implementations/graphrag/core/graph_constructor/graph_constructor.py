@@ -17,6 +17,7 @@ from ..models.entity import Entity
 from ..models.relationship import Relationship
 from ..models.document import DocumentReference
 from ..models.graph_elements import GraphNode, GraphEdge
+from ..cache.cache_manager import GraphCacheManager
 
 
 class GraphConstructor:
@@ -40,6 +41,11 @@ class GraphConstructor:
                 - include_document_nodes: Whether to include document nodes (default: True)
                 - include_section_nodes: Whether to include section nodes (default: True)
                 - bidirectional_relationships: Whether to add edges in both directions (default: True)
+                - use_redis_cache: Whether to use Redis for caching (default: True)
+                - redis_host: Redis server hostname (default: localhost)
+                - redis_port: Redis server port (default: 6379)
+                - redis_db: Redis database number (default: 0)
+                - redis_ttl: Default time-to-live for cached items in seconds (default: 3600)
         """
         self.config = config or {}
         self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
@@ -50,6 +56,7 @@ class GraphConstructor:
         self.include_document_nodes = self.config.get("include_document_nodes", True)
         self.include_section_nodes = self.config.get("include_section_nodes", True)
         self.bidirectional_relationships = self.config.get("bidirectional_relationships", True)
+        self.use_redis_cache = self.config.get("use_redis_cache", True)
         
         # Set up graph directory based on Limnos architecture
         self.graph_dir = self.config.get(
@@ -61,6 +68,20 @@ class GraphConstructor:
         # Initialize the graph
         self._initialize_graph()
         
+        # Initialize cache manager if caching is enabled
+        if self.use_redis_cache:
+            cache_config = {
+                "host": self.config.get("redis_host", "localhost"),
+                "port": self.config.get("redis_port", 6379),
+                "db": self.config.get("redis_db", 0),
+                "ttl": self.config.get("redis_ttl", 3600),
+                "prefix": "graphrag:"
+            }
+            self.cache_manager = GraphCacheManager(cache_config=cache_config)
+            self.logger.info(f"Initialized Redis cache at {cache_config['host']}:{cache_config['port']}")
+        else:
+            self.cache_manager = None
+            
         self.logger.info(f"Initialized GraphConstructor with graph type: {self.graph_type}")
     
     def _initialize_graph(self) -> None:
@@ -96,6 +117,14 @@ class GraphConstructor:
         """
         self.logger.info(f"Building graph with {len(entities)} entities and {len(relationships)} relationships")
         
+        # Check cache first if we have a document and caching is enabled
+        if document and self.use_redis_cache and self.cache_manager:
+            cached_graph = self.cache_manager.get_document_graph(document)
+            if cached_graph:
+                self.logger.info(f"Retrieved graph for document {document.id} from cache")
+                self.graph = cached_graph
+                return self.graph
+        
         # Reset the graph
         self._initialize_graph()
         
@@ -114,6 +143,11 @@ class GraphConstructor:
         # Optimize the graph if configured
         if self.optimize_for_retrieval:
             self._optimize_for_retrieval()
+        
+        # Cache the graph if we have a document and caching is enabled
+        if document and self.use_redis_cache and self.cache_manager:
+            self.cache_manager.cache_document_graph(self.graph, document)
+            self.logger.info(f"Cached graph for document {document.id}")
             
         self.logger.info(f"Built graph with {self.graph.number_of_nodes()} nodes and {self.graph.number_of_edges()} edges")
         return self.graph
@@ -395,20 +429,24 @@ class GraphConstructor:
             
         self.logger.info("Graph optimization complete")
     
-    def save_graph(self, filename: Optional[str] = None) -> str:
+    def save_graph(self, filename: Optional[str] = None, document: Optional[DocumentReference] = None) -> str:
         """
         Save the graph to disk.
         
         Args:
             filename: Optional filename to save to (default: auto-generated)
+            document: Optional document reference for caching
             
         Returns:
             Path to the saved graph file
         """
         if not filename:
-            # Generate filename based on timestamp
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"graph_{timestamp}.pkl"
+            # Generate filename based on timestamp or document ID
+            if document:
+                filename = f"graph_{document.document_id}.pkl"
+            else:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"graph_{timestamp}.pkl"
             
         # Ensure the filename has the correct extension
         if not filename.endswith(".pkl"):
@@ -421,25 +459,46 @@ class GraphConstructor:
         try:
             with open(filepath, 'wb') as f:
                 pickle.dump(self.graph, f)
+                
+            # Also cache the graph if document is provided and caching is enabled
+            if document and self.use_redis_cache and self.cache_manager:
+                self.cache_manager.cache_document_graph(self.graph, document)
+                self.logger.info(f"Cached graph for document {document.document_id}")
+                
             self.logger.info(f"Saved graph to {filepath}")
             return filepath
         except Exception as e:
             self.logger.error(f"Failed to save graph: {str(e)}")
             raise
     
-    def load_graph(self, filepath: str) -> nx.Graph:
+    def load_graph(self, filepath: str, document: Optional[DocumentReference] = None) -> nx.Graph:
         """
-        Load a graph from disk.
+        Load a graph from disk or cache.
         
         Args:
             filepath: Path to the graph file
+            document: Optional document reference for cache lookup
             
         Returns:
             The loaded NetworkX graph
         """
+        # Try to load from cache first if document is provided and caching is enabled
+        if document and self.use_redis_cache and self.cache_manager:
+            cached_graph = self.cache_manager.get_document_graph(document)
+            if cached_graph:
+                self.logger.info(f"Loaded graph for document {document.document_id} from cache")
+                self.graph = cached_graph
+                return self.graph
+        
         try:
             with open(filepath, 'rb') as f:
                 self.graph = pickle.load(f)
+                
+            # Cache the loaded graph if document is provided and caching is enabled
+            if document and self.use_redis_cache and self.cache_manager:
+                self.cache_manager.cache_document_graph(self.graph, document)
+                self.logger.info(f"Cached loaded graph for document {document.document_id}")
+                
             self.logger.info(f"Loaded graph from {filepath} with {self.graph.number_of_nodes()} nodes and {self.graph.number_of_edges()} edges")
             return self.graph
         except Exception as e:
@@ -496,6 +555,67 @@ class GraphConstructor:
             self.logger.error(f"Failed to save graph metadata: {str(e)}")
             raise
     
+    def get_entity_subgraph(self, entity_id: str, depth: int = 1, document: Optional[DocumentReference] = None) -> nx.Graph:
+        """
+        Get a subgraph centered on a specific entity.
+        
+        Args:
+            entity_id: ID of the entity to center the subgraph on
+            depth: Number of hops to include in the subgraph
+            document: Optional document reference for caching
+            
+        Returns:
+            Subgraph centered on the specified entity
+        """
+        # Check cache first if document is provided and caching is enabled
+        if document and self.use_redis_cache and self.cache_manager:
+            # If we have an Entity object instead of just an ID, we can use it directly
+            if isinstance(entity_id, Entity):
+                entity = entity_id
+                entity_id = entity.id
+            else:
+                # Create a minimal Entity object for caching purposes
+                entity = Entity(id=entity_id, name=entity_id)
+                
+            cached_subgraph = self.cache_manager.get_entity_subgraph(document, entity, depth)
+            if cached_subgraph:
+                self.logger.info(f"Retrieved entity subgraph for {entity_id} from cache")
+                return cached_subgraph
+        
+        if not self.graph.has_node(entity_id):
+            self.logger.warning(f"Entity {entity_id} not found in graph")
+            return nx.Graph()
+        
+        # Get all nodes within the specified depth
+        nodes = {entity_id}
+        current_nodes = {entity_id}
+        
+        for _ in range(depth):
+            next_nodes = set()
+            for node in current_nodes:
+                next_nodes.update(self.graph.neighbors(node))
+            current_nodes = next_nodes - nodes  # Avoid revisiting nodes
+            nodes.update(current_nodes)
+            if not current_nodes:  # No more nodes to explore
+                break
+        
+        # Create the subgraph
+        subgraph = self.graph.subgraph(nodes).copy()
+        
+        # Set the central entity attribute
+        if entity_id in subgraph.nodes:
+            subgraph.nodes[entity_id]["is_central"] = True
+        
+        # Cache the subgraph if document is provided and caching is enabled
+        if document and self.use_redis_cache and self.cache_manager:
+            if isinstance(entity_id, str):
+                # Create a minimal Entity object for caching purposes
+                entity = Entity(id=entity_id, name=entity_id)
+            self.cache_manager.cache_entity_subgraph(subgraph, document, entity, depth)
+            self.logger.info(f"Cached entity subgraph for {entity_id}")
+        
+        return subgraph
+        
     def get_graph_stats(self) -> Dict[str, Any]:
         """
         Get statistics about the current graph.
@@ -548,5 +668,43 @@ class GraphConstructor:
             stats["average_degree"] = total_degree / stats["node_count"]
         else:
             stats["average_degree"] = 0
+        
+        # Add cache statistics if caching is enabled
+        if self.use_redis_cache and self.cache_manager:
+            stats["cache"] = self.get_cache_stats()
             
         return stats
+    
+    def invalidate_cache(self, document: Optional[DocumentReference] = None) -> int:
+        """
+        Invalidate cached graphs for a document or all cached graphs.
+        
+        Args:
+            document: Optional document to invalidate caches for. If None, invalidates all caches.
+            
+        Returns:
+            Number of invalidated cache entries
+        """
+        if not self.use_redis_cache or not self.cache_manager:
+            return 0
+            
+        if document:
+            count = self.cache_manager.invalidate_document_caches(document.document_id)
+            self.logger.info(f"Invalidated {count} cache entries for document {document.document_id}")
+        else:
+            count = self.cache_manager.clear_all_caches()
+            self.logger.info(f"Invalidated all {count} cache entries")
+            
+        return count
+        
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """
+        Get cache statistics.
+        
+        Returns:
+            Dictionary with cache statistics or empty dict if caching is disabled
+        """
+        if not self.use_redis_cache or not self.cache_manager:
+            return {}
+            
+        return self.cache_manager.get_cache_stats()
