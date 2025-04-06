@@ -76,3 +76,7 @@ nltk_data/
 # Logs
 logs/
 *.log
+data/implementations/pathrag/*
+data/implementations/graphrag/*
+data/implementations/ragframework/*
+!data/implementations/.gitkeep

@@ -1,17 +1,18 @@
 """
-Universal Document Collector Integration for PathRAG
+Universal Document Collector Integration for PathRAG (Refactored)
 
 This module provides integration components to connect PathRAG with the
 Universal Document Collector, handling document processing, path extraction,
 and storage while maintaining the separation between universal and
-framework-specific metadata.
+framework-specific metadata. This refactored version uses Pydantic models and
+the new metadata architecture.
 """
 
 import os
 import json
 import logging
 import time
-from pathlib import Path as FilePath
+from pathlib import Path
 from typing import List, Dict, Any, Set, Tuple, Optional, Union, Callable
 import shutil
 import hashlib
@@ -23,9 +24,20 @@ from ..core.entity_extractor import EntityExtractor
 from ..core.relationship_extractor import RelationshipExtractor
 from ..core.path_constructor import PathConstructor
 from ..core.extraction_pipeline import ExtractionPipeline
-from ..core.path_structures import Path, PathNode, PathEdge, PathIndex
+from ..core.path_structures import Path as PathStructure
+from ..core.path_structures import PathNode, PathEdge, PathIndex
 from ..core.path_vector_store import PathVectorStore
 from ..core.path_storage_manager import PathStorageManager
+
+# Import Universal Document Collector components
+from limnos.ingest.collectors.universal_collector_refactored import UniversalDocumentCollector
+from limnos.ingest.collectors.metadata_interface import MetadataFormat, MetadataExtensionPoint
+from limnos.ingest.collectors.metadata_factory import MetadataPreprocessorFactory
+from limnos.ingest.collectors.metadata_provider import MetadataProvider
+
+# Import Pydantic models
+from limnos.ingest.models.document import Document
+from limnos.ingest.models.metadata import UniversalMetadata, PathRAGMetadata
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -52,54 +64,83 @@ class DocumentCollectorIntegration:
         """
         self.config = config or {}
         
-        # Source directories (universal document storage)
-        self.source_documents_dir = self.config.get(
+        # Base directory for source documents (universal storage)
+        self.source_documents_dir = Path(self.config.get(
             'source_documents_dir', 
-            os.path.join('/home/todd/ML-Lab/Olympus/limnos/data/source_documents')
-        )
+            '/home/todd/ML-Lab/Olympus/limnos/data/source_documents'
+        ))
         
         # Base directory for PathRAG-specific data
-        self.pathrag_data_dir = self.config.get(
+        self.pathrag_data_dir = Path(self.config.get(
             'pathrag_data_dir',
-            os.path.join('/home/todd/ML-Lab/Olympus/limnos/data/implementations/pathrag')
-        )
+            '/home/todd/ML-Lab/Olympus/limnos/data/implementations/pathrag'
+        ))
         
-        # Directory for processed document metadata
-        self.processed_docs_dir = os.path.join(self.pathrag_data_dir, 'processed_documents')
+        # Create required directories
+        self.pathrag_data_dir.mkdir(parents=True, exist_ok=True)
+        (self.pathrag_data_dir / "paths").mkdir(exist_ok=True)
+        (self.pathrag_data_dir / "metadata").mkdir(exist_ok=True)
+        (self.pathrag_data_dir / "vectors").mkdir(exist_ok=True)
+        (self.pathrag_data_dir / "logs").mkdir(exist_ok=True)
         
-        # Directory for processing logs
-        self.logs_dir = os.path.join(self.pathrag_data_dir, 'logs')
-        
-        # Create necessary directories
-        for directory in [self.processed_docs_dir, self.logs_dir]:
-            os.makedirs(directory, exist_ok=True)
+        # Initialize the Universal Document Collector
+        self.universal_collector = self._initialize_universal_collector()
         
         # Initialize PathRAG components
-        self.extraction_pipeline = ExtractionPipeline(
-            self.config.get('extraction_pipeline_config', {})
-        )
-        
-        # Initialize storage manager
-        self.storage_manager = PathStorageManager(
-            self.config.get('storage_manager_config', {})
-        )
+        self._initialize_components()
         
         # Track processed documents
         self.processed_document_ids = self._load_processed_document_ids()
+    
+    def _initialize_universal_collector(self) -> UniversalDocumentCollector:
+        """Initialize the Universal Document Collector."""
+        collector = UniversalDocumentCollector()
+        collector_config = {
+            'source_dir': str(self.source_documents_dir),
+            'processor_type': 'general'  # Use general processor as default
+        }
+        collector.initialize(collector_config)
         
-        # Batch size for processing
-        self.batch_size = self.config.get('batch_size', 10)
+        # Register PathRAG metadata preprocessor
+        self._register_metadata_preprocessor(collector)
         
-        # Processing timeout per document (seconds)
-        self.processing_timeout = self.config.get('processing_timeout', 300)
+        return collector
+    
+    def _register_metadata_preprocessor(self, collector: UniversalDocumentCollector) -> None:
+        """
+        Register the PathRAG metadata preprocessor with the Universal Document Collector.
         
-        # Skip document types that aren't supported
-        self.supported_extensions = self.config.get('supported_extensions', 
-                                                   ['.txt', '.md', '.pdf', '.json'])
+        Args:
+            collector: Universal Document Collector instance
+        """
+        # Using the factory to create the preprocessor
+        pathrag_preprocessor = MetadataPreprocessorFactory.create_preprocessor(
+            'pathrag',
+            {'output_dir': str(self.pathrag_data_dir)}
+        )
         
-        # Optional processing hooks
-        self.pre_processing_hook = None
-        self.post_processing_hook = None
+        # Register with the collector
+        collector.register_extension_point('pathrag', pathrag_preprocessor)
+        
+        logger.info("PathRAG metadata preprocessor registered with the Universal Document Collector")
+    
+    def _initialize_components(self) -> None:
+        """Initialize PathRAG components."""
+        # Initialize extraction pipeline
+        extraction_config = self.config.get('extraction_pipeline_config', {})
+        extraction_config.update({
+            'paths_dir': str(self.pathrag_data_dir / "paths"),
+            'metadata_dir': str(self.pathrag_data_dir / "metadata")
+        })
+        self.extraction_pipeline = ExtractionPipeline(extraction_config)
+        
+        # Initialize storage manager
+        storage_config = self.config.get('storage_manager_config', {})
+        storage_config.update({
+            'paths_dir': str(self.pathrag_data_dir / "paths"),
+            'vectors_dir': str(self.pathrag_data_dir / "vectors")
+        })
+        self.storage_manager = PathStorageManager(storage_config)
     
     def _load_processed_document_ids(self) -> Set[str]:
         """
@@ -108,469 +149,371 @@ class DocumentCollectorIntegration:
         Returns:
             Set of processed document IDs
         """
-        processed_ids = set()
+        processed_ids_file = self.pathrag_data_dir / "processed_documents.json"
         
-        # Check which documents have already been processed
-        if os.path.exists(self.processed_docs_dir):
-            for filename in os.listdir(self.processed_docs_dir):
-                if filename.endswith('.json'):
-                    processed_ids.add(filename[:-5])  # Remove .json extension
-        
-        logger.info(f"Loaded {len(processed_ids)} processed document IDs")
-        return processed_ids
+        if processed_ids_file.exists():
+            try:
+                with open(processed_ids_file, 'r') as f:
+                    return set(json.load(f))
+            except (json.JSONDecodeError, IOError) as e:
+                logger.warning(f"Error loading processed document IDs: {e}")
+                return set()
+        else:
+            return set()
     
-    def _save_processed_document_id(self, document_id: str, metadata: Dict[str, Any]) -> None:
+    def _save_processed_document_ids(self) -> None:
+        """Save the set of processed document IDs."""
+        processed_ids_file = self.pathrag_data_dir / "processed_documents.json"
+        
+        try:
+            with open(processed_ids_file, 'w') as f:
+                json.dump(list(self.processed_document_ids), f, indent=2)
+        except IOError as e:
+            logger.error(f"Error saving processed document IDs: {e}")
+    
+    def process_document(self, doc_id: str) -> bool:
         """
-        Save record of a processed document.
+        Process a document with the PathRAG pipeline.
         
         Args:
-            document_id: Document ID
-            metadata: Processing metadata
-        """
-        # Create a record of processing
-        filepath = os.path.join(self.processed_docs_dir, f"{document_id}.json")
-        
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(metadata, f, indent=2)
-        
-        # Add to processed set
-        self.processed_document_ids.add(document_id)
-    
-    def _get_document_content(self, document_id: str) -> Tuple[str, Dict[str, Any]]:
-        """
-        Get document content and universal metadata.
-        
-        Args:
-            document_id: Document ID
+            doc_id: Document ID
             
         Returns:
-            Tuple of (document_content, universal_metadata)
-            
-        Raises:
-            DocumentProcessingError: If document or metadata not found
+            True if processing was successful, False otherwise
         """
-        # Try to find document file
-        document_path = None
-        metadata_path = os.path.join(self.source_documents_dir, f"{document_id}.json")
-        
-        # Check for various document formats
-        for ext in self.supported_extensions:
-            path = os.path.join(self.source_documents_dir, f"{document_id}{ext}")
-            if os.path.exists(path):
-                document_path = path
-                break
-        
-        # Check if document exists
-        if not document_path:
-            raise DocumentProcessingError(f"Document file not found for ID: {document_id}")
-        
-        # Check if metadata exists
-        if not os.path.exists(metadata_path):
-            raise DocumentProcessingError(f"Universal metadata not found for ID: {document_id}")
-        
-        # Load universal metadata
-        try:
-            with open(metadata_path, 'r', encoding='utf-8') as f:
-                metadata = json.load(f)
-        except Exception as e:
-            raise DocumentProcessingError(f"Error loading metadata: {str(e)}")
-        
-        # Load document content
-        try:
-            with open(document_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-        except Exception as e:
-            raise DocumentProcessingError(f"Error loading document: {str(e)}")
-        
-        return content, metadata
-    
-    def set_pre_processing_hook(self, hook: Callable[[str, Dict[str, Any]], Dict[str, Any]]) -> None:
-        """
-        Set a hook to run before processing a document.
-        
-        Args:
-            hook: Function that takes (document_id, metadata) and returns metadata
-        """
-        self.pre_processing_hook = hook
-    
-    def set_post_processing_hook(self, hook: Callable[[str, Dict[str, Any], List[Path]], Dict[str, Any]]) -> None:
-        """
-        Set a hook to run after processing a document.
-        
-        Args:
-            hook: Function that takes (document_id, metadata, paths) and returns metadata
-        """
-        self.post_processing_hook = hook
-    
-    def process_document(self, document_id: str, force_reprocess: bool = False) -> Dict[str, Any]:
-        """
-        Process a single document from the Universal Document Collector.
-        
-        Args:
-            document_id: Document ID
-            force_reprocess: Whether to reprocess even if already processed
-            
-        Returns:
-            Processing results metadata
-            
-        Raises:
-            DocumentProcessingError: If processing fails
-        """
-        # Check if already processed
-        if document_id in self.processed_document_ids and not force_reprocess:
-            logger.info(f"Document {document_id} already processed, skipping")
-            return {"status": "skipped", "document_id": document_id}
-        
-        processing_start_time = time.time()
-        processing_metadata = {
-            "document_id": document_id,
-            "processing_started": datetime.now().isoformat(),
-            "status": "processing"
-        }
+        logger.info(f"Processing document: {doc_id}")
         
         try:
-            # Get document content and metadata
-            content, universal_metadata = self._get_document_content(document_id)
+            # Get document from the Universal Document Collector
+            doc_result = self.universal_collector.get_document(doc_id)
+            if not doc_result:
+                logger.error(f"Document not found: {doc_id}")
+                return False
             
-            # Call pre-processing hook if set
-            if self.pre_processing_hook:
-                universal_metadata = self.pre_processing_hook(document_id, universal_metadata)
+            document, file_paths = doc_result
             
-            # Process document through extraction pipeline
-            logger.info(f"Processing document {document_id}")
+            # Get PathRAG-specific metadata
+            pathrag_metadata = self.universal_collector.get_framework_metadata(doc_id, 'pathrag')
+            if not pathrag_metadata:
+                logger.error(f"PathRAG metadata not found for document: {doc_id}")
+                return False
             
-            # Create document object with metadata
-            document = {
-                "id": document_id,
-                "content": content,
-                "metadata": universal_metadata
-            }
+            # Extract paths using the extraction pipeline
+            paths = self._extract_paths(document, pathrag_metadata)
             
-            # Process through pipeline with timeout
-            start_time = time.time()
-            result = self.extraction_pipeline.process_document(document)
-            processing_time = time.time() - start_time
+            # Store paths and vectors
+            self._store_paths(paths, doc_id, pathrag_metadata)
             
-            # Extract paths
-            paths = result.get('paths', [])
+            # Mark document as processed
+            self.processed_document_ids.add(doc_id)
+            self._save_processed_document_ids()
             
-            # Store paths
-            stored_paths = []
-            for path in paths:
-                # Ensure document_id is in node metadata
-                for node in path.nodes:
-                    if not node.metadata:
-                        node.metadata = {}
-                    node.metadata['document_id'] = document_id
-                
-                # Save path
-                self.storage_manager.save_path(path)
-                stored_paths.append(path)
+            # Update processing status
+            extension_point = self.universal_collector._metadata_provider.get_extension_point('pathrag')
+            if extension_point:
+                extension_point.update_processing_status(doc_id, {
+                    'metadata_processed': True,
+                    'paths_extracted': True,
+                    'paths_stored': True
+                })
             
-            # Call post-processing hook if set
-            if self.post_processing_hook:
-                universal_metadata = self.post_processing_hook(document_id, universal_metadata, stored_paths)
-            
-            # Update processing metadata
-            processing_metadata.update({
-                "status": "success",
-                "processing_completed": datetime.now().isoformat(),
-                "processing_time_seconds": processing_time,
-                "path_count": len(stored_paths),
-                "entity_count": len(result.get('entities', [])),
-                "relationship_count": len(result.get('relationships', []))
-            })
-            
-            # Save processing record
-            self._save_processed_document_id(document_id, processing_metadata)
-            
-            logger.info(f"Successfully processed document {document_id} - extracted {len(stored_paths)} paths")
-            return processing_metadata
+            logger.info(f"Document {doc_id} processed successfully")
+            return True
             
         except Exception as e:
-            # Log the exception
-            logger.error(f"Error processing document {document_id}: {str(e)}")
+            logger.error(f"Error processing document {doc_id}: {e}")
             logger.error(traceback.format_exc())
-            
-            # Update processing metadata
-            processing_metadata.update({
-                "status": "error",
-                "error_message": str(e),
-                "processing_completed": datetime.now().isoformat(),
-                "processing_time_seconds": time.time() - processing_start_time
-            })
-            
-            # Still save the processing record to avoid repeated failures
-            self._save_processed_document_id(document_id, processing_metadata)
-            
-            # Re-raise as DocumentProcessingError
-            raise DocumentProcessingError(f"Failed to process document {document_id}: {str(e)}")
+            return False
     
-    def process_documents(
-        self, 
-        document_ids: List[str] = None,
-        force_reprocess: bool = False
-    ) -> Dict[str, Any]:
+    def _extract_paths(self, document: Document, pathrag_metadata: Dict[str, Any]) -> List[PathStructure]:
         """
-        Process multiple documents from the Universal Document Collector.
+        Extract paths from a document.
         
         Args:
-            document_ids: List of document IDs to process (if None, process all unprocessed)
-            force_reprocess: Whether to reprocess documents even if already processed
+            document: Document
+            pathrag_metadata: PathRAG-specific metadata
             
         Returns:
-            Processing results metadata
+            List of extracted paths
         """
-        start_time = time.time()
+        logger.info(f"Extracting paths from document: {document.doc_id}")
         
-        # If no document IDs provided, process all unprocessed documents
-        if document_ids is None:
-            document_ids = self._get_unprocessed_document_ids()
+        # Get path extraction configuration
+        if 'path_extraction_config' in pathrag_metadata:
+            config = pathrag_metadata['path_extraction_config']
+        else:
+            # Fallback for older metadata format
+            extension_point = self.universal_collector._metadata_provider.get_extension_point('pathrag')
+            if extension_point:
+                config = extension_point.get_path_extraction_config(document.doc_id)
+            else:
+                config = {}
         
-        # Process in batches
-        results = {
-            "total": len(document_ids),
-            "success": 0,
-            "error": 0,
-            "skipped": 0,
-            "documents": {}
-        }
+        # Extract paths
+        paths = self.extraction_pipeline.extract_paths(
+            document_id=document.doc_id,
+            document_content=document.content,
+            metadata=pathrag_metadata,
+            config=config
+        )
         
-        for i in range(0, len(document_ids), self.batch_size):
-            batch = document_ids[i:i+self.batch_size]
-            
-            for doc_id in batch:
-                try:
-                    result = self.process_document(doc_id, force_reprocess)
-                    results["documents"][doc_id] = result
-                    
-                    if result["status"] == "success":
-                        results["success"] += 1
-                    elif result["status"] == "skipped":
-                        results["skipped"] += 1
-                    else:
-                        results["error"] += 1
-                        
-                except DocumentProcessingError as e:
-                    logger.error(f"Error processing document {doc_id}: {str(e)}")
-                    results["documents"][doc_id] = {
-                        "status": "error",
-                        "error_message": str(e)
-                    }
-                    results["error"] += 1
+        # Save paths to file
+        paths_path = self.pathrag_data_dir / "paths" / f"{document.doc_id}.json"
+        paths_serializable = [path.to_dict() for path in paths]
         
-        # Save index and vector store
-        try:
-            self.storage_manager.save_index()
-            self.storage_manager.save_vector_store()
-        except Exception as e:
-            logger.error(f"Error saving index or vector store: {str(e)}")
-            results["index_save_error"] = str(e)
+        with open(paths_path, 'w') as f:
+            json.dump(paths_serializable, f, indent=2)
         
-        # Update processing metadata
-        results["processing_time_seconds"] = time.time() - start_time
-        
-        return results
+        logger.info(f"Extracted {len(paths)} paths from document {document.doc_id}")
+        return paths
     
-    def _get_unprocessed_document_ids(self) -> List[str]:
+    def _store_paths(self, paths: List[PathStructure], doc_id: str, pathrag_metadata: Dict[str, Any]) -> None:
         """
-        Get IDs of all unprocessed documents in the source directory.
+        Store paths and generate vectors.
+        
+        Args:
+            paths: List of paths
+            doc_id: Document ID
+            pathrag_metadata: PathRAG-specific metadata
+        """
+        logger.info(f"Storing paths for document: {doc_id}")
+        
+        # Get storage configuration
+        if 'storage_config' in pathrag_metadata:
+            config = pathrag_metadata['storage_config']
+        else:
+            config = {}
+        
+        # Store paths and their vectors
+        self.storage_manager.store_paths(
+            document_id=doc_id,
+            paths=paths,
+            config=config
+        )
+        
+        logger.info(f"Stored {len(paths)} paths for document {doc_id}")
+    
+    def process_all_documents(self) -> Tuple[int, int]:
+        """
+        Process all documents that haven't been processed yet.
         
         Returns:
-            List of unprocessed document IDs
+            Tuple of (number of documents processed, number of documents with errors)
         """
-        all_document_ids = set()
-        
-        # Scan source directory for metadata files
-        if os.path.exists(self.source_documents_dir):
-            for filename in os.listdir(self.source_documents_dir):
-                if filename.endswith('.json'):
-                    document_id = filename[:-5]  # Remove .json extension
-                    all_document_ids.add(document_id)
+        # Get all document IDs from the Universal Document Collector
+        all_doc_ids = set(self.universal_collector.list_documents())
         
         # Filter out already processed documents
-        unprocessed_ids = list(all_document_ids - self.processed_document_ids)
-        logger.info(f"Found {len(unprocessed_ids)} unprocessed documents")
+        unprocessed_doc_ids = all_doc_ids - self.processed_document_ids
         
-        return unprocessed_ids
+        logger.info(f"Found {len(unprocessed_doc_ids)} unprocessed documents")
+        
+        success_count = 0
+        error_count = 0
+        
+        for doc_id in unprocessed_doc_ids:
+            if self.process_document(doc_id):
+                success_count += 1
+            else:
+                error_count += 1
+        
+        return success_count, error_count
     
-    def get_processing_status(self, document_id: str) -> Dict[str, Any]:
+    def get_document_processing_status(self, doc_id: str) -> Dict[str, Any]:
         """
-        Get processing status for a document.
+        Get the processing status of a document.
         
         Args:
-            document_id: Document ID
+            doc_id: Document ID
             
         Returns:
-            Processing status metadata or None if not processed
+            Status dictionary
         """
-        if document_id not in self.processed_document_ids:
-            return None
+        status = {
+            'document_id': doc_id,
+            'exists': False,
+            'processed': False,
+            'paths_extracted': False,
+            'paths_stored': False,
+            'path_count': 0
+        }
         
-        filepath = os.path.join(self.processed_docs_dir, f"{document_id}.json")
+        # Check if document exists
+        if not self.universal_collector.document_exists(doc_id):
+            return status
         
-        if not os.path.exists(filepath):
-            return None
+        status['exists'] = True
+        
+        # Check if document has been processed
+        status['processed'] = doc_id in self.processed_document_ids
+        
+        # Check for paths
+        paths_file = self.pathrag_data_dir / "paths" / f"{doc_id}.json"
+        if paths_file.exists():
+            status['paths_extracted'] = True
+            try:
+                with open(paths_file, 'r') as f:
+                    paths_data = json.load(f)
+                    status['path_count'] = len(paths_data)
+            except:
+                pass
+        
+        # Check for vectors
+        vectors_file = self.pathrag_data_dir / "vectors" / f"{doc_id}.json"
+        if vectors_file.exists():
+            status['paths_stored'] = True
+        
+        return status
+    
+    def reprocess_document(self, doc_id: str, force: bool = False) -> bool:
+        """
+        Reprocess a document that has already been processed.
+        
+        Args:
+            doc_id: Document ID
+            force: If True, reprocess even if document is already in processed list
+            
+        Returns:
+            True if reprocessing was successful, False otherwise
+        """
+        # Check if document has been processed already
+        if doc_id in self.processed_document_ids and not force:
+            logger.info(f"Document {doc_id} has already been processed. Use force=True to reprocess.")
+            return False
+        
+        # Remove existing paths and vectors
+        self._cleanup_document_artifacts(doc_id)
+        
+        # Remove from processed list
+        if doc_id in self.processed_document_ids:
+            self.processed_document_ids.remove(doc_id)
+            self._save_processed_document_ids()
+        
+        # Process document
+        return self.process_document(doc_id)
+    
+    def _cleanup_document_artifacts(self, doc_id: str) -> None:
+        """
+        Remove all artifacts for a document.
+        
+        Args:
+            doc_id: Document ID
+        """
+        # Remove paths file
+        paths_file = self.pathrag_data_dir / "paths" / f"{doc_id}.json"
+        if paths_file.exists():
+            paths_file.unlink()
+        
+        # Remove vectors file
+        vectors_file = self.pathrag_data_dir / "vectors" / f"{doc_id}.json"
+        if vectors_file.exists():
+            vectors_file.unlink()
+        
+        # Remove metadata file
+        metadata_file = self.pathrag_data_dir / "metadata" / f"{doc_id}.json"
+        if metadata_file.exists():
+            metadata_file.unlink()
+            
+        logger.info(f"Cleaned up artifacts for document {doc_id}")
+    
+    def get_document_paths(self, doc_id: str) -> List[Dict[str, Any]]:
+        """
+        Get all paths for a document.
+        
+        Args:
+            doc_id: Document ID
+            
+        Returns:
+            List of paths as dictionaries
+        """
+        paths_file = self.pathrag_data_dir / "paths" / f"{doc_id}.json"
+        if not paths_file.exists():
+            logger.warning(f"No paths found for document {doc_id}")
+            return []
         
         try:
-            with open(filepath, 'r', encoding='utf-8') as f:
+            with open(paths_file, 'r') as f:
                 return json.load(f)
         except Exception as e:
-            logger.error(f"Error loading processing status for {document_id}: {str(e)}")
-            return None
+            logger.error(f"Error loading paths for document {doc_id}: {e}")
+            return []
     
-    def check_for_updates(self) -> List[str]:
+    def query_paths(self, query: str, top_k: int = 10) -> List[Dict[str, Any]]:
         """
-        Check for updated documents in the source directory.
-        
-        Returns:
-            List of document IDs that have been updated
-        """
-        updated_docs = []
-        
-        # Check all processed documents for updates
-        for doc_id in self.processed_document_ids:
-            # Get processing metadata
-            processing_meta = self.get_processing_status(doc_id)
-            
-            if not processing_meta:
-                continue
-            
-            # Check document file and metadata
-            metadata_path = os.path.join(self.source_documents_dir, f"{doc_id}.json")
-            
-            if not os.path.exists(metadata_path):
-                # Document no longer exists
-                continue
-            
-            # Check if metadata has been modified since processing
-            try:
-                metadata_mtime = os.path.getmtime(metadata_path)
-                processing_time = datetime.fromisoformat(
-                    processing_meta.get("processing_completed", "2000-01-01T00:00:00")
-                ).timestamp()
-                
-                if metadata_mtime > processing_time:
-                    # Metadata has been updated
-                    updated_docs.append(doc_id)
-            except Exception as e:
-                logger.error(f"Error checking updates for {doc_id}: {str(e)}")
-        
-        logger.info(f"Found {len(updated_docs)} updated documents")
-        return updated_docs
-    
-    def process_updated_documents(self) -> Dict[str, Any]:
-        """
-        Process all documents that have been updated since last processing.
-        
-        Returns:
-            Processing results metadata
-        """
-        updated_docs = self.check_for_updates()
-        return self.process_documents(updated_docs, force_reprocess=True)
-    
-    def reprocess_all_documents(self) -> Dict[str, Any]:
-        """
-        Reprocess all documents in the source directory.
-        
-        Returns:
-            Processing results metadata
-        """
-        # Get all document IDs
-        document_ids = []
-        
-        if os.path.exists(self.source_documents_dir):
-            for filename in os.listdir(self.source_documents_dir):
-                if filename.endswith('.json'):
-                    document_id = filename[:-5]  # Remove .json extension
-                    document_ids.append(document_id)
-        
-        logger.info(f"Reprocessing all {len(document_ids)} documents")
-        return self.process_documents(document_ids, force_reprocess=True)
-    
-    def reprocess_failed_documents(self) -> Dict[str, Any]:
-        """
-        Reprocess all documents that failed processing.
-        
-        Returns:
-            Processing results metadata
-        """
-        failed_docs = []
-        
-        # Check all processed documents for failures
-        for doc_id in self.processed_document_ids:
-            # Get processing metadata
-            processing_meta = self.get_processing_status(doc_id)
-            
-            if processing_meta and processing_meta.get("status") == "error":
-                failed_docs.append(doc_id)
-        
-        logger.info(f"Reprocessing {len(failed_docs)} failed documents")
-        return self.process_documents(failed_docs, force_reprocess=True)
-    
-    def get_processing_statistics(self) -> Dict[str, Any]:
-        """
-        Get statistics about document processing.
-        
-        Returns:
-            Dictionary of processing statistics
-        """
-        total_processed = len(self.processed_document_ids)
-        successful = 0
-        failed = 0
-        paths_count = 0
-        
-        # Check all processed documents
-        for doc_id in self.processed_document_ids:
-            # Get processing metadata
-            processing_meta = self.get_processing_status(doc_id)
-            
-            if not processing_meta:
-                continue
-            
-            if processing_meta.get("status") == "success":
-                successful += 1
-                paths_count += processing_meta.get("path_count", 0)
-            elif processing_meta.get("status") == "error":
-                failed += 1
-        
-        # Get storage statistics
-        storage_stats = self.storage_manager.get_statistics()
-        
-        return {
-            "total_processed": total_processed,
-            "successful": successful,
-            "failed": failed,
-            "paths_extracted": paths_count,
-            "storage_stats": storage_stats
-        }
-    
-    def clear_processing_records(self, document_ids: List[str] = None) -> int:
-        """
-        Clear processing records for specified documents.
+        Query paths using semantic similarity.
         
         Args:
-            document_ids: List of document IDs to clear (if None, clear all)
+            query: Query string
+            top_k: Number of top results to return
             
         Returns:
-            Number of records cleared
+            List of path results
         """
-        if document_ids is None:
-            # Clear all records
-            document_ids = list(self.processed_document_ids)
+        return self.storage_manager.query_paths(query, top_k)
+    
+    def get_paths_by_metadata(self, metadata_filter: Dict[str, Any], limit: int = 100) -> List[Dict[str, Any]]:
+        """
+        Get paths that match the metadata filter.
         
-        cleared_count = 0
-        
-        for doc_id in document_ids:
-            filepath = os.path.join(self.processed_docs_dir, f"{doc_id}.json")
+        Args:
+            metadata_filter: Dictionary of metadata key-value pairs to filter on
+            limit: Maximum number of paths to return
             
-            if os.path.exists(filepath):
-                try:
-                    os.remove(filepath)
-                    self.processed_document_ids.remove(doc_id)
-                    cleared_count += 1
-                except Exception as e:
-                    logger.error(f"Error clearing record for {doc_id}: {str(e)}")
+        Returns:
+            List of path results
+        """
+        return self.storage_manager.get_paths_by_metadata(metadata_filter, limit)
+    
+    def get_path_by_id(self, path_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a specific path by ID.
         
-        logger.info(f"Cleared {cleared_count} processing records")
-        return cleared_count
+        Args:
+            path_id: Path ID
+            
+        Returns:
+            Path if found, None otherwise
+        """
+        return self.storage_manager.get_path_by_id(path_id)
+    
+    def batch_process_documents(self, batch_size: int = 10) -> Tuple[int, int]:
+        """
+        Process documents in batches.
+        
+        Args:
+            batch_size: Number of documents to process in each batch
+            
+        Returns:
+            Tuple of (total documents processed, documents with errors)
+        """
+        # Get all document IDs from the Universal Document Collector
+        all_doc_ids = set(self.universal_collector.list_documents())
+        
+        # Filter out already processed documents
+        unprocessed_doc_ids = list(all_doc_ids - self.processed_document_ids)
+        
+        logger.info(f"Found {len(unprocessed_doc_ids)} unprocessed documents")
+        
+        total_processed = 0
+        total_errors = 0
+        
+        # Process in batches
+        for i in range(0, len(unprocessed_doc_ids), batch_size):
+            batch = unprocessed_doc_ids[i:i+batch_size]
+            logger.info(f"Processing batch {i//batch_size + 1}/{(len(unprocessed_doc_ids)-1)//batch_size + 1} with {len(batch)} documents")
+            
+            success_count = 0
+            error_count = 0
+            
+            for doc_id in batch:
+                if self.process_document(doc_id):
+                    success_count += 1
+                else:
+                    error_count += 1
+                    
+            total_processed += success_count
+            total_errors += error_count
+            
+            logger.info(f"Batch complete: {success_count} succeeded, {error_count} failed")
+        
+        return total_processed, total_errors

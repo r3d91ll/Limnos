@@ -78,7 +78,7 @@ class EmbeddedChunk:
         return f"EmbeddedChunk(id={self.chunk_id}, doc_id={self.document_id})"
 
 
-class DocumentProcessor(Component, Configurable, Pluggable, ABC):
+class DocumentProcessor(Component):
     """Interface for document processors in the ingest pipeline."""
     
     @property
@@ -133,7 +133,7 @@ class DocumentProcessor(Component, Configurable, Pluggable, ABC):
         pass
 
 
-class DocumentChunker(Component, Configurable, Pluggable, ABC):
+class DocumentChunker(Component):
     """Interface for document chunkers in the ingest pipeline."""
     
     @property
@@ -174,7 +174,7 @@ class DocumentChunker(Component, Configurable, Pluggable, ABC):
         pass
 
 
-class DocumentEmbedder(Component, Configurable, Pluggable, ABC):
+class DocumentEmbedder(Component):
     """Interface for document embedders in the ingest pipeline."""
     
     @property

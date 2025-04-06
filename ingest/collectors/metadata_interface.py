@@ -7,120 +7,82 @@ framework-specific metadata while providing extension points.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional, Protocol, Callable, TypeVar, Generic, Union
+from typing import Dict, Any, List, Optional, Set, Union
 from pathlib import Path
 import json
 from enum import Enum
 
-from limnos.ingest.collectors.metadata_schema import UniversalMetadataSchema, DocumentType
+# Import the new Pydantic models
+from limnos.ingest.models.metadata import UniversalMetadata, DocumentType
 
 
-class MetadataFormat(Enum):
+class MetadataFormat(str, Enum):
     """Enum defining the metadata formats supported by the interface."""
     JSON = "json"
     DICT = "dict"
-    SCHEMA = "schema"
+    PYDANTIC = "pydantic"
 
 
-class MetadataExtensionPoint(Protocol):
-    """Protocol defining the interface for metadata extension points."""
+class MetadataExtensionPoint(ABC):
+    """Abstract base class for metadata extension points.
     
-    def process_metadata(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Process and potentially transform metadata.
-        
-        Args:
-            metadata: The metadata to process
-            
-        Returns:
-            Processed metadata
-        """
-        ...
-
-
-T = TypeVar('T')
-
-class MetadataProvider(Generic[T], ABC):
-    """
-    Interface for metadata providers in Limnos.
-    
-    This interface defines the standard methods that all metadata providers
-    must implement to ensure consistent metadata handling across frameworks.
+    This class defines the interface for framework-specific metadata processors
+    that transform universal metadata into framework-specific formats.
     """
     
     @abstractmethod
-    def get_metadata(self, document_id: str, format: MetadataFormat = MetadataFormat.DICT) -> T:
-        """
-        Get metadata for a document in the specified format.
+    def transform_metadata(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Transform universal metadata into framework-specific format.
         
         Args:
-            document_id: ID of the document
-            format: Format to return the metadata in
+            metadata: Universal metadata to transform
             
         Returns:
-            Metadata in the requested format
+            Framework-specific metadata
         """
         pass
     
     @abstractmethod
-    def get_metadata_schema(self) -> Dict[str, Any]:
-        """
-        Get the metadata schema definition.
-        
-        Returns:
-            Dictionary representing the metadata schema
-        """
-        pass
-    
-    @abstractmethod
-    def register_extension_point(self, name: str, extension: MetadataExtensionPoint) -> None:
-        """
-        Register an extension point for metadata processing.
+    def get_processing_status(self, doc_id: str) -> Dict[str, Any]:
+        """Get the processing status for a document.
         
         Args:
-            name: Name of the extension point
-            extension: Extension point implementation
-        """
-        pass
-    
-    @abstractmethod
-    def get_extension_point(self, name: str) -> Optional[MetadataExtensionPoint]:
-        """
-        Get a registered extension point by name.
-        
-        Args:
-            name: Name of the extension point
+            doc_id: Document ID
             
         Returns:
-            Extension point implementation or None if not found
+            Processing status dictionary
         """
         pass
     
     @abstractmethod
-    def list_extension_points(self) -> List[str]:
-        """
-        List all registered extension points.
-        
-        Returns:
-            List of extension point names
-        """
-        pass
-    
-    @abstractmethod
-    def process_metadata_with_extension(self, 
-                                       document_id: str, 
-                                       extension_name: str) -> Dict[str, Any]:
-        """
-        Process metadata with a specific extension point.
+    def update_processing_status(self, doc_id: str, status_updates: Dict[str, bool]) -> None:
+        """Update the processing status for a document.
         
         Args:
-            document_id: ID of the document
-            extension_name: Name of the extension point to use
-            
-        Returns:
-            Processed metadata
+            doc_id: Document ID
+            status_updates: Dictionary of status updates
         """
         pass
+    
+    @abstractmethod
+    def is_fully_processed(self, doc_id: str) -> bool:
+        """Check if a document is fully processed.
+        
+        Args:
+            doc_id: Document ID
+            
+        Returns:
+            True if fully processed, False otherwise
+        """
+        pass
+    
+    def get_required_metadata_fields(self) -> Set[str]:
+        """Get the set of required metadata fields.
+        
+        Returns:
+            Set of field names
+        """
+        return {"doc_id", "title", "content"}
 
 
 class UniversalMetadataProvider(MetadataProvider[Union[Dict[str, Any], UniversalMetadataSchema, str]]):
