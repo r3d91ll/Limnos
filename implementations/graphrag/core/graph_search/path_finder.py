@@ -6,7 +6,7 @@ Implements path finding algorithms for knowledge graph navigation.
 
 import logging
 import heapq
-from typing import Dict, List, Set, Any, Optional, Callable, Tuple, Iterator, Union
+from typing import Dict, List, Set, Any, Optional, Callable, Tuple, Iterator, Union, Mapping
 import networkx as nx
 import numpy as np
 
@@ -138,8 +138,8 @@ class PathFinder:
             return []
         
         # Initialize with the first shortest path
-        A = [(shortest_path, shortest_path_length)]  # List of (path, length) tuples
-        B = []  # Heap of (length, path) tuples for potential k-shortest paths
+        A: List[Tuple[List[Any], float]] = [(shortest_path, shortest_path_length)]  # List of (path, length) tuples
+        B: List[Tuple[float, List[Any]]] = []  # Heap of (length, path) tuples for potential k-shortest paths
         
         # Find k-1 more paths
         for i in range(1, k):
@@ -224,8 +224,8 @@ class PathFinder:
                       graph: nx.Graph,
                       source: Any,
                       target: Any,
-                      weight_function: Callable[[Any, Any, Dict], float],
-                      max_paths: Optional[int] = None) -> List[Tuple[List, float]]:
+                      weight_function: Callable[[Any, Any, Mapping[str, Any]], float],
+                      max_paths: Optional[int] = None) -> List[Tuple[List[Any], float]]:
         """
         Find paths based on a custom weight function.
         
@@ -250,9 +250,9 @@ class PathFinder:
             return []
         
         # Initialize priority queue with (weight, node, path)
-        pq = [(0, source, [source])]
-        visited = set()
-        results = []
+        pq: List[Tuple[float, Any, List[Any]]] = [(0, source, [source])]
+        visited: Set[Any] = set()
+        results: List[Tuple[List[Any], float]] = []
         
         while pq and len(results) < max_paths:
             weight, node, path = heapq.heappop(pq)
@@ -315,7 +315,7 @@ class PathFinder:
             return []
         
         # Helper function to calculate semantic guidance weight
-        def semantic_weight(node):
+        def semantic_weight(node: Any) -> float:
             # Get node embedding vector
             node_data = graph.nodes[node]
             if embedding_attr not in node_data:
@@ -331,15 +331,15 @@ class PathFinder:
             query_norm = query_vector / np.linalg.norm(query_vector)
             
             # Calculate similarity (1 - cosine similarity for minimization)
-            similarity = 1.0 - np.dot(embedding, query_norm)
+            similarity: float = 1.0 - float(np.dot(embedding, query_norm))
             return similarity
         
         # A* search with semantic heuristic
         # Initialize priority queue with (weight, node, path, path_score)
         start_weight = semantic_weight(source)
-        pq = [(start_weight, 0, source, [source], start_weight)]
-        visited = set()
-        results = []
+        pq: List[Tuple[float, float, Any, List[Any], float]] = [(start_weight, 0, source, [source], start_weight)]
+        visited: Set[Any] = set()
+        results: List[Tuple[List[Any], float]] = []
         
         while pq and len(results) < max_paths:
             # Get node with lowest total weight (f = g + h)
@@ -392,7 +392,7 @@ class PathFinder:
                      source: Any,
                      target: Any,
                      diversity_threshold: float = 0.3,
-                     max_paths: Optional[int] = None) -> List[List]:
+                     max_paths: Optional[int] = None) -> List[List[Any]]:
         """
         Find diverse paths between source and target nodes.
         
@@ -412,17 +412,17 @@ class PathFinder:
         max_paths = max_paths if max_paths is not None else self.max_paths
         
         # Find many candidate paths using k-shortest paths
-        candidate_paths = self.k_shortest_paths(
+        path_tuples = self.k_shortest_paths(
             graph, source, target, k=max_paths * 3, weight='weight')
         
-        if not candidate_paths:
+        if not path_tuples:
             return []
         
         # Keep only the paths
-        candidate_paths = [path for path, _ in candidate_paths]
+        candidate_paths: List[List[Any]] = [path for path, _ in path_tuples]
         
         # Calculate path diversity
-        selected_paths = [candidate_paths[0]]  # Start with shortest path
+        selected_paths: List[List[Any]] = [candidate_paths[0]]  # Start with shortest path
         
         for path in candidate_paths[1:]:
             path_set = set(path)

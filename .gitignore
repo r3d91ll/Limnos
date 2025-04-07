@@ -46,7 +46,7 @@ limnos/data/results/*
 !limnos/data/.gitkeep
 !limnos/data/source_documents/.gitkeep
 
-models/
+#models/
 *.db
 *.sqlite
 *.sqlite3

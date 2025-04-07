@@ -6,7 +6,7 @@ graph operations in the GraphRAG implementation.
 """
 
 import networkx as nx
-from typing import Dict, List, Optional, Any, Set, Tuple, Union
+from typing import Dict, List, Optional, Any, Set, Tuple, Union, cast
 import logging
 import os
 from datetime import datetime
@@ -51,14 +51,15 @@ class DocumentGraph:
         os.makedirs(self.graph_dir, exist_ok=True)
         
         # Initialize document graph
-        self.graph = None
-        self.entities = []
-        self.relationships = []
+        # Using Union instead of Optional for more explicit typing
+        self.graph: Union[nx.Graph, None] = None
+        self.entities: list[Entity] = []
+        self.relationships: list[Relationship] = []
         
         self.logger.info(f"Initialized DocumentGraph for document: {document.document_id}")
     
-    def build_graph(self, entities: List[Entity], relationships: List[Relationship],
-                   sections: Optional[List[Dict[str, Any]]] = None) -> nx.Graph:
+    def build_graph(self, entities: list[Entity], relationships: list[Relationship],
+                   sections: Optional[list[Dict[str, Any]]] = None) -> Union[nx.Graph, None]:
         """
         Build a graph for this document from entities and relationships.
         
@@ -77,12 +78,23 @@ class DocumentGraph:
         self.entities = entities
         self.relationships = relationships
         
-        # Build the graph
-        self.graph = self.graph_constructor.build_graph(entities, relationships, self.document)
+        # Build the graph with proper type casting to avoid type checker errors
+        result = self.graph_constructor.build_graph(entities, relationships, self.document)
+        self.graph = cast(Union[nx.Graph, None], result)
+        
+        # If graph construction failed, initialize an empty graph
+        if self.graph is None:
+            self.logger.warning("Graph construction failed, initializing empty graph")
+            self.graph = nx.Graph()
         
         # Add section nodes if available
         if sections and self.graph_constructor.include_section_nodes:
             self.graph_constructor.add_section_nodes(self.document, sections, entities)
+            
+        # Check again if graph is None after section node addition
+        if self.graph is None:
+            self.logger.warning("Graph became None after section node addition, reinitializing")
+            self.graph = nx.Graph()
             
         # Add document metadata to graph
         self.graph.graph["document_id"] = self.document.document_id

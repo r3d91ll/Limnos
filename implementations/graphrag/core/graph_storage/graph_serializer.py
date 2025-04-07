@@ -76,7 +76,7 @@ class GraphSerializer:
             logger.error(f"Error serializing graph: {e}")
             raise
     
-    def deserialize(self, data: bytes) -> nx.Graph:
+    def deserialize(self, data: bytes) -> Union[nx.Graph, nx.DiGraph, nx.MultiGraph, nx.MultiDiGraph]:
         """
         Deserialize binary data back to a NetworkX graph.
         
@@ -122,9 +122,9 @@ class GraphSerializer:
         """Serialize using pickle protocol"""
         return pickle.dumps(graph, protocol=pickle.HIGHEST_PROTOCOL)
     
-    def _pickle_deserialize(self, data: bytes) -> nx.Graph:
+    def _pickle_deserialize(self, data: bytes) -> Union[nx.Graph, nx.DiGraph, nx.MultiGraph, nx.MultiDiGraph]:
         """Deserialize from pickle data"""
-        return pickle.loads(data)
+        return pickle.loads(data)  # type: ignore
     
     def _json_serialize(self, graph: nx.Graph) -> bytes:
         """Serialize using JSON representation"""
@@ -133,11 +133,11 @@ class GraphSerializer:
         json_str = json.dumps(data)
         return json_str.encode('utf-8')
     
-    def _json_deserialize(self, data: bytes) -> nx.Graph:
+    def _json_deserialize(self, data: bytes) -> Union[nx.Graph, nx.DiGraph, nx.MultiGraph, nx.MultiDiGraph]:
         """Deserialize from JSON data"""
         json_str = data.decode('utf-8')
         data = json.loads(json_str)
-        return nx.node_link_graph(data)
+        return nx.node_link_graph(data)  # type: ignore
     
     def _adjacency_serialize(self, graph: nx.Graph) -> bytes:
         """Serialize using adjacency format"""
@@ -162,7 +162,7 @@ class GraphSerializer:
         json_str = json.dumps(full_data)
         return json_str.encode('utf-8')
     
-    def _adjacency_deserialize(self, data: bytes) -> nx.Graph:
+    def _adjacency_deserialize(self, data: bytes) -> Union[nx.Graph, nx.DiGraph, nx.MultiGraph, nx.MultiDiGraph]:
         """Deserialize from adjacency format"""
         json_str = data.decode('utf-8')
         full_data = json.loads(json_str)
@@ -171,6 +171,10 @@ class GraphSerializer:
         directed = full_data.get('directed', False)
         multigraph = full_data.get('multigraph', False)
         
+        # Define G with the union type that covers all possible graph types
+        G: Union[nx.Graph, nx.DiGraph, nx.MultiGraph, nx.MultiDiGraph]
+        
+        # Create the appropriate graph type based on flags
         if directed and multigraph:
             G = nx.MultiDiGraph()
         elif directed:
@@ -191,6 +195,11 @@ class GraphSerializer:
         adj_data = full_data.get('adjacency', {})
         for u, nbrs in adj_data.items():
             for v, data in nbrs.items():
-                G.add_edge(u, v, **data)
+                # Ensure data is a dictionary before unpacking
+                if isinstance(data, dict):
+                    G.add_edge(u, v, **data)
+                else:
+                    # Handle case where data is not a dictionary
+                    G.add_edge(u, v, weight=data)
         
         return G

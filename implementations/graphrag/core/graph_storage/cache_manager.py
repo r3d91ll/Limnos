@@ -7,7 +7,7 @@ Provides caching mechanisms for frequently accessed graphs to improve performanc
 import time
 import logging
 import threading
-from typing import Dict, Any, Optional, List, Set, Tuple
+from typing import Dict, Any, Optional, List, Set, Tuple, Union
 import networkx as nx
 from collections import OrderedDict
 
@@ -26,7 +26,7 @@ class LRUCache:
             capacity: Maximum number of items to store in the cache
         """
         self.capacity = capacity
-        self.cache = OrderedDict()
+        self.cache: OrderedDict[str, Any] = OrderedDict()
         self.lock = threading.RLock()  # Reentrant lock for thread safety
     
     def get(self, key: str) -> Optional[Any]:
@@ -138,7 +138,7 @@ class GraphCacheManager:
         self.expiration_times: Dict[str, float] = {}
         
         # Cache statistics
-        self.stats = {
+        self.stats: Dict[str, Union[int, float]] = {
             'hits': 0,
             'misses': 0,
             'evictions': 0,
@@ -148,7 +148,7 @@ class GraphCacheManager:
         
         # Set up cache maintenance
         self.maintenance_interval = 60  # Run maintenance every 60 seconds
-        self.maintenance_thread = None
+        self.maintenance_thread: Optional[threading.Thread] = None
         self.shutdown_flag = threading.Event()
         
         # Start maintenance thread
@@ -159,12 +159,18 @@ class GraphCacheManager:
     def _start_maintenance_thread(self) -> None:
         """Start the cache maintenance thread."""
         if self.maintenance_thread is None:
-            self.maintenance_thread = threading.Thread(
+            # Create thread and explicitly update the type
+            thread = threading.Thread(
                 target=self._maintenance_loop,
                 daemon=True  # Make thread daemon so it exits when main thread exits
             )
-            self.maintenance_thread.start()
-            logger.info("Started cache maintenance thread")
+            self.maintenance_thread = thread
+            # Check again to ensure it's not None before calling start()
+            if self.maintenance_thread is not None:
+                self.maintenance_thread.start()
+                logger.info("Started cache maintenance thread")
+            else:
+                logger.warning("Failed to start maintenance thread: thread is None")
     
     def _maintenance_loop(self) -> None:
         """Maintenance loop for expired cache entries."""
@@ -276,8 +282,10 @@ class GraphCacheManager:
         Returns:
             Dict[str, Any]: Cache statistics
         """
-        stats = dict(self.stats)
-        stats['size'] = self.graph_cache.size()
+        stats: Dict[str, Union[int, float]] = dict(self.stats)
+        # Explicitly get and assign the size as an integer
+        cache_size: int = self.graph_cache.size()
+        stats['size'] = cache_size
         stats['capacity'] = self.capacity
         
         if stats['hits'] + stats['misses'] > 0:

@@ -12,6 +12,13 @@ import networkx as nx
 import redis
 from redis.client import Pipeline
 
+# Using forward reference for RedisGraphManager to avoid circular imports
+from typing import TYPE_CHECKING
+
+# Only import for type checking to avoid circular imports
+if TYPE_CHECKING:
+    from .redis_graph_manager import RedisGraphManager
+
 logger = logging.getLogger(__name__)
 
 class BatchOperations:
@@ -23,7 +30,7 @@ class BatchOperations:
     """
     
     def __init__(self, 
-                 redis_graph_manager,
+                 redis_graph_manager: 'RedisGraphManager',
                  batch_size: int = 100,
                  auto_execute: bool = True):
         """
@@ -34,18 +41,18 @@ class BatchOperations:
             batch_size: Maximum number of operations per batch
             auto_execute: Whether to automatically execute when batch_size is reached
         """
-        self.redis_graph_manager = redis_graph_manager
-        self.batch_size = batch_size
-        self.auto_execute = auto_execute
+        self.redis_graph_manager: 'RedisGraphManager' = redis_graph_manager
+        self.batch_size: int = batch_size
+        self.auto_execute: bool = auto_execute
         
         # Current batch of operations
         self.current_batch: List[Dict[str, Any]] = []
         
         # Lock for thread safety
-        self.batch_lock = threading.RLock()
+        self.batch_lock: threading.RLock = threading.RLock()
         
         # Stats
-        self.stats = {
+        self.stats: Dict[str, Union[int, float]] = {
             'batches_executed': 0,
             'operations_processed': 0,
             'last_execution_time': 0.0
@@ -53,7 +60,7 @@ class BatchOperations:
         
         logger.info(f"Initialized BatchOperations with batch_size={batch_size}, auto_execute={auto_execute}")
     
-    def store_graph(self, graph_id: str, graph: nx.Graph, metadata: Dict[str, Any] = None) -> None:
+    def store_graph(self, graph_id: str, graph: nx.Graph, metadata: Optional[Dict[str, Any]] = None) -> None:
         """
         Add a graph storage operation to the batch.
         
@@ -237,7 +244,7 @@ class BatchOperations:
     
     def store_graphs_bulk(self, 
                        graphs: Dict[str, nx.Graph], 
-                       metadata: Dict[str, Dict[str, Any]] = None) -> Dict[str, Any]:
+                       metadata: Optional[Dict[str, Dict[str, Any]]] = None) -> Dict[str, Any]:
         """
         Store multiple graphs in a single batch operation.
         

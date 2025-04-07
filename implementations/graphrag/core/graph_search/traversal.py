@@ -5,7 +5,7 @@ Implements core graph traversal algorithms for knowledge graph exploration.
 """
 
 import logging
-from typing import Dict, List, Set, Any, Optional, Callable, Tuple, Iterator, Union
+from typing import Dict, List, Set, Any, Optional, Callable, Tuple, Iterator, Union, Mapping
 from collections import deque
 import networkx as nx
 
@@ -35,7 +35,7 @@ class GraphTraversal:
                             graph: nx.Graph, 
                             start_node: Any, 
                             node_filter: Optional[Callable[[Any], bool]] = None,
-                            edge_filter: Optional[Callable[[Any, Any, Dict], bool]] = None,
+                            edge_filter: Optional[Callable[[Any, Any, Mapping[str, Any]], bool]] = None,
                             max_depth: Optional[int] = None, 
                             max_nodes: Optional[int] = None) -> Iterator[Tuple[Any, int, List]]:
         """
@@ -112,7 +112,7 @@ class GraphTraversal:
                           graph: nx.Graph, 
                           start_node: Any, 
                           node_filter: Optional[Callable[[Any], bool]] = None,
-                          edge_filter: Optional[Callable[[Any, Any, Dict], bool]] = None,
+                          edge_filter: Optional[Callable[[Any, Any, Mapping[str, Any]], bool]] = None,
                           max_depth: Optional[int] = None, 
                           max_nodes: Optional[int] = None) -> Iterator[Tuple[Any, int, List]]:
         """

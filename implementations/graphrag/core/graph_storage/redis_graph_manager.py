@@ -7,7 +7,7 @@ Manages connections and operations for storing graph data in Redis.
 import os
 import json
 import logging
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional, List, Tuple, Union
 import redis
 import networkx as nx
 
@@ -20,6 +20,7 @@ class RedisGraphManager:
     This class handles the connection to Redis and provides methods for
     storing, retrieving, and managing graph data.
     """
+    redis_client: redis.Redis
     
     def __init__(self, 
                  host: str = "localhost", 
@@ -51,10 +52,10 @@ class RedisGraphManager:
         
         logger.info(f"Initialized RedisGraphManager with prefix '{prefix}' on {host}:{port}/{db}")
     
-    def _initialize_redis_client(self):
+    def _initialize_redis_client(self) -> None:
         """Initialize the Redis client connection"""
         try:
-            self.redis_client = redis.Redis(
+            self.redis_client: redis.Redis = redis.Redis(
                 host=self.host,
                 port=self.port,
                 db=self.db,
@@ -75,7 +76,7 @@ class RedisGraphManager:
         """Generate a Redis key for graph metadata"""
         return f"{self.prefix}:graph:{graph_id}:metadata"
     
-    def store_graph(self, graph_id: str, graph: nx.Graph, metadata: Dict[str, Any] = None) -> bool:
+    def store_graph(self, graph_id: str, graph: nx.Graph, metadata: Optional[Dict[Union[str, bytes], Union[str, int, float, bytes]]] = None) -> bool:
         """
         Store a graph and its metadata in Redis.
         
@@ -101,7 +102,19 @@ class RedisGraphManager:
             # Store metadata if provided
             if metadata:
                 metadata_key = self.metadata_key(graph_id)
-                self.redis_client.hset(metadata_key, mapping=metadata)
+                # Use explicit typing that matches Redis's expectations
+                # Redis expects Mapping[str | bytes, bytes | float | int | str]
+                typed_metadata: Dict[Union[str, bytes], Union[str, int, float, bytes]] = {}
+                
+                # Convert keys and values to compatible types
+                for k, v in metadata.items():
+                    # Ensure keys are str or bytes
+                    key = k if isinstance(k, (str, bytes)) else str(k)
+                    # Ensure values are valid Redis types
+                    value = v if isinstance(v, (str, int, float, bytes)) else str(v)
+                    typed_metadata[key] = value
+                    
+                self.redis_client.hset(metadata_key, mapping=typed_metadata)
                 self.redis_client.expire(metadata_key, self.ttl)
             
             logger.info(f"Stored graph '{graph_id}' in Redis")

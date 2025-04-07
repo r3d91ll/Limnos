@@ -59,6 +59,9 @@ class GraphSearchEngine:
         self.relevance_search = RelevanceSearch(
             max_results=max_nodes, relevance_threshold=relevance_threshold)
         
+        # Optimized search component that may be None if optimization is disabled
+        self.optimized: Optional[OptimizedGraphSearch] = None
+        
         if use_optimization:
             self.optimized = OptimizedGraphSearch(
                 max_workers=parallel_workers,
@@ -73,7 +76,7 @@ class GraphSearchEngine:
     def bfs(self, 
            graph: nx.Graph, 
            start_node: Any, 
-           **kwargs) -> Dict[Any, Tuple[int, List[Any]]]:
+           **kwargs: Any) -> Dict[Any, Tuple[int, List[Any]]]:
         """
         Perform breadth-first search traversal.
         
@@ -85,7 +88,7 @@ class GraphSearchEngine:
         Returns:
             Dict[Any, Tuple[int, List[Any]]]: Map of node -> (depth, path)
         """
-        if self.use_optimization:
+        if self.use_optimization and self.optimized is not None:
             # Use optimized implementation
             max_depth = kwargs.get('max_depth', self.max_depth)
             max_nodes = kwargs.get('max_nodes', self.max_nodes)
@@ -103,7 +106,7 @@ class GraphSearchEngine:
     def dfs(self, 
            graph: nx.Graph, 
            start_node: Any, 
-           **kwargs) -> Dict[Any, Tuple[int, List[Any]]]:
+           **kwargs: Any) -> Dict[Any, Tuple[int, List[Any]]]:
         """
         Perform depth-first search traversal.
         
@@ -127,7 +130,7 @@ class GraphSearchEngine:
                  source: Any, 
                  target: Any, 
                  method: str = 'shortest', 
-                 **kwargs) -> Union[List[Any], List[Tuple[List[Any], float]]]:
+                 **kwargs: Any) -> Union[List[Any], List[Tuple[List[Any], float]]]:
         """
         Find a path or paths between two nodes.
         
@@ -143,12 +146,15 @@ class GraphSearchEngine:
             Union[List[Any], List[Tuple[List[Any], float]]]: Path(s) between nodes
         """
         # For optimized shortest paths to multiple targets
-        if method == 'shortest' and self.use_optimization and 'targets' in kwargs:
+        if method == 'shortest' and self.use_optimization and self.optimized is not None and 'targets' in kwargs:
             targets = kwargs.pop('targets')
             weight = kwargs.get('weight')
             cutoff = kwargs.get('cutoff')
-            return self.optimized.optimized_shortest_paths(
+            # Get the paths dictionary from optimized search
+            path_dict = self.optimized.optimized_shortest_paths(
                 graph, source, targets, weight=weight, cutoff=cutoff)
+            # Convert to list format to match return type
+            return [path for path in path_dict.values() if path]
         
         # Regular path finding
         if method == 'shortest':
@@ -172,7 +178,7 @@ class GraphSearchEngine:
                           graph: nx.Graph, 
                           query_vector: np.ndarray, 
                           method: str = 'embedding', 
-                          **kwargs) -> List[Tuple[Any, float]]:
+                          **kwargs: Any) -> List[Tuple[Any, float]]:
         """
         Search for nodes based on relevance to a query.
         
@@ -185,7 +191,7 @@ class GraphSearchEngine:
         Returns:
             List[Tuple[Any, float]]: List of (node, relevance) tuples
         """
-        if method == 'embedding' and self.use_optimization:
+        if method == 'embedding' and self.use_optimization and self.optimized is not None:
             # Use optimized implementation
             embedding_attr = kwargs.get('embedding_attr', 'embedding')
             min_similarity = kwargs.get('min_similarity', self.relevance_threshold)
@@ -218,7 +224,7 @@ class GraphSearchEngine:
                         graph: nx.Graph, 
                         center_nodes: List[Any], 
                         method: str = 'neighborhood', 
-                        **kwargs) -> nx.Graph:
+                        **kwargs: Any) -> nx.Graph:
         """
         Extract a relevant subgraph from the knowledge graph.
         
@@ -231,7 +237,7 @@ class GraphSearchEngine:
         Returns:
             nx.Graph: Extracted subgraph
         """
-        if method == 'neighborhood' and self.use_optimization:
+        if method == 'neighborhood' and self.use_optimization and self.optimized is not None:
             # Use optimized implementation
             radius = kwargs.get('radius', 2)
             max_nodes = kwargs.get('max_nodes', self.max_nodes)
@@ -329,7 +335,7 @@ class GraphSearchEngine:
             all_group_nodes.update(group)
         
         # Initialize node scores based on shortest paths
-        node_scores = {}
+        node_scores: Dict[Any, float] = {}
         
         # For each pair of groups
         for i, group1 in enumerate(node_groups):
@@ -358,7 +364,7 @@ class GraphSearchEngine:
                           graph: nx.Graph,
                           attribute: str,
                           value: Any,
-                          **kwargs) -> List[Any]:
+                          **kwargs: Any) -> List[Any]:
         """
         Search for nodes with a specific attribute value.
         
@@ -371,7 +377,7 @@ class GraphSearchEngine:
         Returns:
             List[Any]: List of matching nodes
         """
-        if self.use_optimization and hasattr(self.optimized, 'attribute_indices'):
+        if self.use_optimization and self.optimized is not None and hasattr(self.optimized, 'attribute_indices'):
             # Use index-based search if available
             return self.optimized.attribute_index_search(graph, attribute, value)
         
@@ -388,7 +394,7 @@ class GraphSearchEngine:
         Args:
             graph: NetworkX graph to prepare
         """
-        if self.use_optimization:
+        if self.use_optimization and self.optimized is not None:
             if hasattr(self.optimized, 'build_indices'):
                 # Build attribute indices
                 self.optimized.index_attributes = ['type', 'category', 'entity_type']

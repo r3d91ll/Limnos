@@ -259,8 +259,8 @@ class RelevanceSearch:
                 break
             
             # Prepare next iteration's active nodes
-            next_active_nodes = set()
-            new_activations = defaultdict(float)
+            next_active_nodes: Set[Any] = set()
+            new_activations: defaultdict[Any, float] = defaultdict(float)
             
             # Process each active node
             for node in active_nodes:
@@ -412,7 +412,7 @@ class RelevanceSearch:
         frontier = set(seed_nodes)
         
         # Helper function for semantic guidance
-        def node_relevance(node):
+        def node_relevance(node: Any) -> float:
             # If no query vector, all nodes equally relevant
             if query_vector is None:
                 return 1.0
@@ -441,7 +441,7 @@ class RelevanceSearch:
             
             # Process each frontier node
             for node in frontier:
-                node_relevance = relevance_scores.get(node, 0.0)
+                current_node_relevance = relevance_scores.get(node, 0.0)
                 
                 # Get neighbors
                 neighbors = list(graph.neighbors(node))
@@ -451,7 +451,7 @@ class RelevanceSearch:
                     continue
                 
                 # Calculate expansion limit based on relevance
-                expansion_limit = max(1, int(len(neighbors) * expansion_factor * node_relevance))
+                expansion_limit = max(1, int(len(neighbors) * expansion_factor * current_node_relevance))
                 
                 # Score and sort neighbors by relevance
                 neighbor_scores = []

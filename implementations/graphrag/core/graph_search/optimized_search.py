@@ -6,7 +6,7 @@ Implements optimized search algorithms for efficient operations on large graphs.
 
 import logging
 import time
-from typing import Dict, List, Set, Any, Optional, Callable, Tuple, Iterator, Union
+from typing import Dict, List, Set, Any, Optional, Callable, Tuple, Iterator, Union, Mapping
 import networkx as nx
 import numpy as np
 from collections import defaultdict
@@ -47,12 +47,12 @@ class OptimizedGraphSearch:
         self.index_attributes = index_attributes or []
         
         # Initialize result cache
-        self.result_cache = {}
-        self.cache_timestamps = {}
+        self.result_cache: Dict[str, Any] = {}
+        self.cache_timestamps: Dict[str, float] = {}
         self.cache_lock = threading.RLock()
         
         # Initialize attribute indices
-        self.attribute_indices = {}
+        self.attribute_indices: Dict[str, Dict[Any, Set[Any]]] = {}
         
         logger.info(f"Initialized OptimizedGraphSearch with max_workers={max_workers}, "
                    f"use_parallel={use_parallel}, cache_results={cache_results}")
@@ -114,7 +114,7 @@ class OptimizedGraphSearch:
             if expired_keys:
                 logger.debug(f"Removed {len(expired_keys)} expired entries from cache")
     
-    def _cache_key(self, operation: str, **kwargs) -> str:
+    def _cache_key(self, operation: str, **kwargs: Any) -> str:
         """
         Generate a cache key for an operation with parameters.
         
@@ -126,7 +126,7 @@ class OptimizedGraphSearch:
             str: Cache key string
         """
         # Create string representation of parameters
-        params = []
+        params: List[str] = []
         for key, value in sorted(kwargs.items()):
             # Handle different value types
             if isinstance(value, (list, tuple, set)):
@@ -140,7 +140,7 @@ class OptimizedGraphSearch:
         
         return f"{operation}:{':'.join(params)}"
     
-    def _get_cached_result(self, operation: str, **kwargs) -> Optional[Any]:
+    def _get_cached_result(self, operation: str, **kwargs: Any) -> Optional[Any]:
         """
         Get a result from the cache if available and not expired.
         
@@ -169,7 +169,7 @@ class OptimizedGraphSearch:
             logger.debug(f"Cache miss for {operation}")
             return None
     
-    def _cache_result(self, operation: str, result: Any, **kwargs) -> None:
+    def _cache_result(self, operation: str, result: Any, **kwargs: Any) -> None:
         """
         Store a result in the cache.
         
@@ -235,7 +235,9 @@ class OptimizedGraphSearch:
             max_depth=max_depth, max_nodes=max_nodes)
         
         if cached_result is not None:
-            return cached_result
+            # Ensure correct return type 
+            typed_result: Dict[Any, Tuple[int, List[Any]]] = cached_result
+            return typed_result
         
         # Initialize search
         results = {start_node: (0, [start_node])}
@@ -275,8 +277,8 @@ class OptimizedGraphSearch:
     
     def parallel_subgraph_search(self,
                                graph: nx.Graph,
-                               query_function: Callable[[nx.Graph, Set[Any]], Dict[Any, float]],
-                               max_results: int = 100) -> Dict[Any, float]:
+                               query_function: Callable[[nx.Graph, Set[Any]], Dict[Any, List[Any]]],
+                               max_results: int = 100) -> Dict[Any, List[Any]]:
         """
         Execute a search operation in parallel across graph partitions.
         
@@ -286,7 +288,7 @@ class OptimizedGraphSearch:
             max_results: Maximum results to return
             
         Returns:
-            Dict[Any, float]: Combined results from all partitions
+            Dict[Any, List[Any]]: Combined results from all partitions
         """
         if not self.use_parallel or self.max_workers <= 1:
             # Run non-parallel version
@@ -296,11 +298,11 @@ class OptimizedGraphSearch:
         partitions = self._partition_graph(graph, self.max_workers)
         
         # Function to process a partition
-        def process_partition(partition):
+        def process_partition(partition: Set[Any]) -> Dict[Any, List[Any]]:
             return query_function(graph, partition)
         
         # Execute in parallel
-        all_results = {}
+        all_results: Dict[Any, List[Any]] = {}
         with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             future_to_partition = {
                 executor.submit(process_partition, partition): i 
@@ -316,8 +318,8 @@ class OptimizedGraphSearch:
                     logger.error(f"Error processing partition {partition_index}: {e}")
         
         # Sort and limit results
-        sorted_results = sorted(all_results.items(), key=lambda x: x[1], reverse=True)
-        limited_results = sorted_results[:max_results]
+        sorted_results: List[Tuple[Any, List[Any]]] = sorted(all_results.items(), key=lambda x: len(x[1]), reverse=True)
+        limited_results: List[Tuple[Any, List[Any]]] = sorted_results[:max_results]
         
         return dict(limited_results)
     
@@ -346,7 +348,9 @@ class OptimizedGraphSearch:
             "optimized_shortest_paths", graph_id=id(graph), cache_key=cache_key)
         
         if cached_result is not None:
-            return cached_result
+            # Ensure correct return type
+            typed_result: Dict[Any, List[Any]] = cached_result
+            return typed_result
         
         # For small number of targets, use separate path calculations
         if len(targets) <= 5:
@@ -405,12 +409,14 @@ class OptimizedGraphSearch:
             embedding_attr=embedding_attr, min_similarity=min_similarity, max_results=max_results)
         
         if cached_result is not None:
-            return cached_result
+            # Ensure correct return type
+            typed_result: List[Tuple[Any, float]] = cached_result
+            return typed_result
         
         # Parallel implementation for large graphs
         if self.use_parallel and len(graph) > 1000:
-            def process_nodes(graph, nodes):
-                results = []
+            def process_nodes(graph: nx.Graph, nodes: List[Any]) -> List[Tuple[Any, float]]:
+                results: List[Tuple[Any, float]] = []
                 for node in nodes:
                     node_data = graph.nodes[node]
                     if embedding_attr not in node_data:
@@ -513,7 +519,9 @@ class OptimizedGraphSearch:
             "optimized_subgraph_extraction", graph_id=id(graph), cache_key=cache_key)
         
         if cached_result is not None:
-            return cached_result
+            # Ensure correct return type
+            typed_result: nx.Graph = cached_result
+            return typed_result
         
         # Start with center nodes
         included_nodes = set(centers)
@@ -526,8 +534,8 @@ class OptimizedGraphSearch:
             
             # Process frontier nodes in parallel for large graphs
             if self.use_parallel and len(frontier) > 100:
-                def process_frontier_nodes(nodes):
-                    new_nodes = set()
+                def process_frontier_nodes(nodes: List[Any]) -> Set[Any]:
+                    new_nodes: Set[Any] = set()
                     for node in nodes:
                         for neighbor in graph.neighbors(node):
                             if neighbor not in included_nodes:
@@ -560,9 +568,13 @@ class OptimizedGraphSearch:
             remaining_capacity = max_nodes - len(included_nodes)
             if len(next_frontier) > remaining_capacity:
                 # If we can't include all neighbors, prioritize based on degree
-                next_frontier_list = sorted(
+                # Use a safer way to get the degree as an integer
+                def get_degree(node: Any) -> int:
+                    return len(list(graph.neighbors(node)))
+                
+                next_frontier_list: List[Any] = sorted(
                     next_frontier, 
-                    key=lambda n: graph.degree(n), 
+                    key=get_degree, 
                     reverse=True
                 )
                 next_frontier = set(next_frontier_list[:remaining_capacity])
@@ -599,7 +611,8 @@ class OptimizedGraphSearch:
         if attribute in self.attribute_indices:
             index = self.attribute_indices[attribute]
             if value in index:
-                return index[value]
+                # Convert Set to List to match return type
+                return list(index[value])
             return []
         
         # Fallback to linear search if no index
