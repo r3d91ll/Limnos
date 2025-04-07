@@ -6,7 +6,7 @@ Implements relevance-based search algorithms for knowledge graphs.
 
 import logging
 import heapq
-from typing import Dict, List, Set, Any, Optional, Callable, Tuple, Union
+from typing import Dict, List, Set, Any, Optional, Callable, Tuple, Union, DefaultDict
 import networkx as nx
 import numpy as np
 from collections import defaultdict
@@ -260,7 +260,7 @@ class RelevanceSearch:
             
             # Prepare next iteration's active nodes
             next_active_nodes: Set[Any] = set()
-            new_activations: defaultdict[Any, float] = defaultdict(float)
+            new_activations: DefaultDict[Any, float] = defaultdict(float)
             
             # Process each active node
             for node in active_nodes:

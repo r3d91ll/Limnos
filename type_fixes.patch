@@ -1,0 +1,43 @@
+--- a/implementations/graphrag/core/graph_constructor/graph_merger.py
++++ b/implementations/graphrag/core/graph_constructor/graph_merger.py
+@@ -244,7 +244,7 @@
+             all_entities: Dictionary mapping entity IDs to (entity_id, doc_id, attributes)
+         """
+         # Group entities by type first
+-        entities_by_type = {}
++        entities_by_type: Dict[str, List[Tuple[str, str, Dict[str, Any]]]] = {}
+         
+         for entity_id, (_, doc_id, attrs) in all_entities.items():
+             entity_type = attrs.get("entity_type", "unknown")
+@@ -465,13 +465,13 @@
+         """
+         # Calculate cosine similarity
+         dot_product = sum(vec1.get(k, 0) * vec2.get(k, 0) for k in set(vec1) | set(vec2))
+-        norm1 = sum(v**2 for v in vec1.values()) ** 0.5
+-        norm2 = sum(v**2 for v in vec2.values()) ** 0.5
++        norm1 = float(sum(v**2 for v in vec1.values()) ** 0.5)
++        norm2 = float(sum(v**2 for v in vec2.values()) ** 0.5)
+         
+         if norm1 == 0 or norm2 == 0:
+             return 0.0
+             
+-        return dot_product / (norm1 * norm2)
++        return float(dot_product / (norm1 * norm2))
+     
+     def _add_relationships(self) -> None:
+         """
+@@ -570,8 +570,12 @@
+                 v_degree = self.merged_graph.degree(v)
+                 
+                 # Calculate connection strength (higher for nodes with fewer connections)
+-                connection_strength = weight * (2.0 / (u_degree + v_degree))
+-                self.merged_graph[u][v]["connection_strength"] = connection_strength
++                # Convert degrees to int to avoid type issues
++                u_degree_val = u_degree if isinstance(u_degree, int) else len(list(u_degree))
++                v_degree_val = v_degree if isinstance(v_degree, int) else len(list(v_degree))
++                
++                connection_strength = weight * (2.0 / (u_degree_val + v_degree_val))
++                self.merged_graph[u][v]["connection_strength"] = float(connection_strength)
+             
+         self.logger.info("Merged graph optimization complete")
+     

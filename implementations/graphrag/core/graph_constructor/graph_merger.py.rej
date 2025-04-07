@@ -1,0 +1,19 @@
+--- implementations/graphrag/core/graph_constructor/graph_merger.py
++++ implementations/graphrag/core/graph_constructor/graph_merger.py
+@@ -465,13 +465,13 @@
+         """
+         # Calculate cosine similarity
+         dot_product = sum(vec1.get(k, 0) * vec2.get(k, 0) for k in set(vec1) | set(vec2))
+-        norm1 = sum(v**2 for v in vec1.values()) ** 0.5
+-        norm2 = sum(v**2 for v in vec2.values()) ** 0.5
++        norm1 = float(sum(v**2 for v in vec1.values()) ** 0.5)
++        norm2 = float(sum(v**2 for v in vec2.values()) ** 0.5)
+         
+         if norm1 == 0 or norm2 == 0:
+             return 0.0
+             
+-        return dot_product / (norm1 * norm2)
++        return float(dot_product / (norm1 * norm2))
+     
+     def _add_relationships(self) -> None:
+         """

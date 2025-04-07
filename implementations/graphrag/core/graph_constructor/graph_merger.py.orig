@@ -6,7 +6,7 @@ into a unified knowledge graph in the GraphRAG implementation.
 """
 
 import networkx as nx
-from typing import Dict, List, Optional, Any, Set, Tuple, Union, cast
+from typing import Dict, List, Optional, Any, Set, Tuple, Union
 import logging
 import os
 from datetime import datetime
@@ -244,7 +244,7 @@ class GraphMerger:
             all_entities: Dictionary mapping entity IDs to (entity_id, doc_id, attributes)
         """
         # Group entities by type first
-        entities_by_type: Dict[str, List[Tuple[str, str, Dict[str, Any]]]] = {}
+        entities_by_type = {}
         
         for entity_id, (_, doc_id, attrs) in all_entities.items():
             entity_type = attrs.get("entity_type", "unknown")
@@ -465,14 +465,14 @@ class GraphMerger:
         vec2 = np.array(embedding2)
         
         # Calculate cosine similarity
-        dot_product = float(np.dot(vec1, vec2))
-        norm1 = float(np.linalg.norm(vec1))
-        norm2 = float(np.linalg.norm(vec2))
+        dot_product = np.dot(vec1, vec2)
+        norm1 = np.linalg.norm(vec1)
+        norm2 = np.linalg.norm(vec2)
         
         if norm1 == 0 or norm2 == 0:
             return 0.0
             
-        return float(dot_product / (norm1 * norm2))
+        return dot_product / (norm1 * norm2)
     
     def _add_relationships(self) -> None:
         """
@@ -571,12 +571,8 @@ class GraphMerger:
                 v_degree = self.merged_graph.degree(v)
                 
                 # Calculate connection strength (higher for nodes with fewer connections)
-                # Convert degrees to int to avoid type issues
-                u_degree_val = u_degree if isinstance(u_degree, int) else len(list(u_degree))
-                v_degree_val = v_degree if isinstance(v_degree, int) else len(list(v_degree))
-                
-                connection_strength = weight * (2.0 / (u_degree_val + v_degree_val))
-                self.merged_graph[u][v]["connection_strength"] = float(connection_strength)
+                connection_strength = weight * (2.0 / (u_degree + v_degree))
+                self.merged_graph[u][v]["connection_strength"] = connection_strength
             
         self.logger.info("Merged graph optimization complete")
     
@@ -685,7 +681,7 @@ class GraphMerger:
         except Exception as e:
             self.logger.error(f"Failed to save merged graph metadata: {str(e)}")
     
-    def get_merged_graph_stats(self) -> Dict[str, Union[int, float, Dict[str, int], str, bool]]:
+    def get_merged_graph_stats(self) -> Dict[str, Any]:
         """
         Get statistics about the merged graph.
         
@@ -693,15 +689,15 @@ class GraphMerger:
             Dictionary of graph statistics
         """
         if self.merged_graph is None:
-            return {"status": "not_initialized", "node_count": 0, "edge_count": 0, "density": 0.0, "average_degree": 0.0, "node_types": {}, "edge_types": {}, "entity_count": 0, "relationship_count": 0}
+            return {"status": "not_initialized"}
             
-        # Get basic statistics with proper type annotations
-        stats: Dict[str, Union[int, float, Dict[str, int], str, bool]] = {
+        # Get basic statistics
+        stats = {
             "status": "initialized",
-            "node_count": int(self.merged_graph.number_of_nodes()),
-            "edge_count": int(self.merged_graph.number_of_edges()),
-            "document_count": int(len(self.document_graphs)),
-            "is_directed": bool(self.merged_graph.is_directed()),
+            "node_count": self.merged_graph.number_of_nodes(),
+            "edge_count": self.merged_graph.number_of_edges(),
+            "document_count": len(self.document_graphs),
+            "is_directed": self.merged_graph.is_directed(),
             "node_types": {},
             "edge_types": {},
             "entity_count": 0,
@@ -709,48 +705,34 @@ class GraphMerger:
         }
         
         # Count node types
-        node_types_dict = cast(Dict[str, int], stats["node_types"])
         for node, attrs in self.merged_graph.nodes(data=True):
             node_type = attrs.get("node_type", "unknown")
-            node_types_dict[node_type] = node_types_dict.get(node_type, 0) + 1
+            stats["node_types"][node_type] = stats["node_types"].get(node_type, 0) + 1
             
             # Count entities
             if node_type not in ["document", "section"]:
-                stats["entity_count"] = cast(int, stats["entity_count"]) + 1
+                stats["entity_count"] += 1
                 
         # Count edge types
-        edge_types_dict = cast(Dict[str, int], stats["edge_types"])
         for u, v, attrs in self.merged_graph.edges(data=True):
             edge_type = attrs.get("edge_type", "unknown")
-            edge_types_dict[edge_type] = edge_types_dict.get(edge_type, 0) + 1
+            stats["edge_types"][edge_type] = stats["edge_types"].get(edge_type, 0) + 1
             
             # Count relationships
             if edge_type not in ["contains", "has_section", "has_subsection"]:
-                stats["relationship_count"] = cast(int, stats["relationship_count"]) + 1
+                stats["relationship_count"] += 1
                 
         # Calculate density
         try:
-            stats["density"] = float(nx.density(self.merged_graph))
+            stats["density"] = nx.density(self.merged_graph)
         except Exception:
-            stats["density"] = 0.0
+            stats["density"] = 0
             
         # Calculate average degree
-        node_count = cast(int, stats["node_count"])
-        if node_count > 0:
-            # Handle the degree calculation in a type-safe way
-            degree_dict = {}
-            # Iterate through nodes and get each degree individually
-            for node in self.merged_graph.nodes():
-                try:
-                    node_degree = self.merged_graph.degree(node)
-                    if isinstance(node_degree, int):
-                        degree_dict[node] = node_degree
-                except (TypeError, AttributeError):
-                    continue
-            # Convert all degree values to integers to ensure type safety
-            total_degree = sum(int(deg) for deg in degree_dict.values())
-            stats["average_degree"] = float(total_degree) / float(node_count)
+        if stats["node_count"] > 0:
+            total_degree = sum(dict(self.merged_graph.degree()).values())
+            stats["average_degree"] = total_degree / stats["node_count"]
         else:
-            stats["average_degree"] = 0.0
+            stats["average_degree"] = 0
             
         return stats

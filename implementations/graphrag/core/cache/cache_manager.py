@@ -67,16 +67,16 @@ class GraphCacheManager:
         # Generate a cache key specific to this document
         # Following Limnos principles - maintain separation of framework-specific metadata
         key_components = {
-            'document_id': document.id,
+            'document_id': document.document_id,
             'document_version': document.version,
             'framework': 'graphrag',  # Explicitly framework-specific
             'timestamp': document.last_modified_at.isoformat() if document.last_modified_at else None
         }
         
         # Track this key for document-based invalidation
-        if document.id not in self.document_cache_keys:
-            self.document_cache_keys[document.id] = []
-        self.document_cache_keys[document.id].append(key_components)
+        if document.document_id not in self.document_cache_keys:
+            self.document_cache_keys[document.document_id] = []
+        self.document_cache_keys[document.document_id].append(key_components)
         
         # Cache the graph
         success = self.cache.cache_graph(graph, key_components, ttl)
@@ -98,7 +98,7 @@ class GraphCacheManager:
             The cached graph or None if not found
         """
         key_components = {
-            'document_id': document.id,
+            'document_id': document.document_id,
             'document_version': document.version,
             'framework': 'graphrag',
             'timestamp': document.last_modified_at.isoformat() if document.last_modified_at else None
@@ -128,16 +128,16 @@ class GraphCacheManager:
             Cache key identifier
         """
         key_components = {
-            'document_id': document.id,
+            'document_id': document.document_id,
             'entity_id': entity.id,
             'depth': depth,
             'framework': 'graphrag'
         }
         
         # Track this key for document-based invalidation
-        if document.id not in self.document_cache_keys:
-            self.document_cache_keys[document.id] = []
-        self.document_cache_keys[document.id].append(key_components)
+        if document.document_id not in self.document_cache_keys:
+            self.document_cache_keys[document.document_id] = []
+        self.document_cache_keys[document.document_id].append(key_components)
         
         # Cache the subgraph
         success = self.cache.cache_graph(subgraph, key_components, ttl)
@@ -163,7 +163,7 @@ class GraphCacheManager:
             The cached subgraph or None if not found
         """
         key_components = {
-            'document_id': document.id,
+            'document_id': document.document_id,
             'entity_id': entity.id,
             'depth': depth,
             'framework': 'graphrag'

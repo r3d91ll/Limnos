@@ -53,13 +53,13 @@ class DocumentGraph:
         # Initialize document graph
         # Using Union instead of Optional for more explicit typing
         self.graph: Union[nx.Graph, None] = None
-        self.entities: list[Entity] = []
-        self.relationships: list[Relationship] = []
+        self.entities: List[Entity] = []
+        self.relationships: List[Relationship] = []
         
         self.logger.info(f"Initialized DocumentGraph for document: {document.document_id}")
     
-    def build_graph(self, entities: list[Entity], relationships: list[Relationship],
-                   sections: Optional[list[Dict[str, Any]]] = None) -> Union[nx.Graph, None]:
+    def build_graph(self, entities: List[Entity], relationships: List[Relationship],
+                   sections: Optional[List[Dict[str, Any]]] = None) -> nx.Graph:
         """
         Build a graph for this document from entities and relationships.
         
@@ -280,12 +280,12 @@ class DocumentGraph:
         
         # Count entity types
         for entity in self.entities:
-            entity_type = entity.type
+            entity_type = entity.entity_type
             metadata["entity_types"][entity_type] = metadata["entity_types"].get(entity_type, 0) + 1
             
         # Count relationship types
         for relationship in self.relationships:
-            rel_type = relationship.type
+            rel_type = relationship.relationship_type
             metadata["relationship_types"][rel_type] = metadata["relationship_types"].get(rel_type, 0) + 1
             
         # Save metadata
@@ -365,12 +365,12 @@ class DocumentGraph:
         
         # Count entity types
         for entity in self.entities:
-            entity_type = entity.type
+            entity_type = entity.entity_type
             summary["entity_types"][entity_type] = summary["entity_types"].get(entity_type, 0) + 1
             
         # Count relationship types
         for relationship in self.relationships:
-            rel_type = relationship.type
+            rel_type = relationship.relationship_type
             summary["relationship_types"][rel_type] = summary["relationship_types"].get(rel_type, 0) + 1
             
         return summary
