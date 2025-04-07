@@ -1,0 +1,68 @@
+# SubgraphExtractor Configuration Example
+
+# Main extractor settings
+max_nodes: 100               # Maximum number of nodes in extracted subgraph
+max_edges: 500               # Maximum number of edges in extracted subgraph
+max_density: 0.1             # Maximum edge density (edges/max_possible_edges)
+relevance_threshold: 0.3     # Minimum relevance score for nodes/edges
+context_aware: true          # Whether to use context-aware pruning
+optimize_subgraph: true      # Whether to apply optimization techniques
+embedding_attr: "embedding"  # Attribute name for node/edge embeddings
+text_attr: "text"            # Attribute name for node/edge text content
+preserve_seed_nodes: true    # Whether to always keep seed nodes
+
+# Weight distribution for hybrid optimization
+relevance_weight: 0.6        # Weight for relevance in hybrid optimization
+diversity_weight: 0.2        # Weight for diversity in hybrid optimization 
+connectivity_weight: 0.2     # Weight for connectivity in hybrid optimization
+
+# NodeEdgeScorer specific configuration
+scorer_config:
+  embedding_attr: "embedding"   # Attribute name for embeddings
+  text_attr: "text"             # Attribute name for text content
+  importance_attr: "importance" # Attribute name for predefined importance
+  
+  # Scoring weights
+  alpha: 0.5                 # Weight for semantic similarity
+  beta: 0.3                  # Weight for structural importance
+  gamma: 0.2                 # Weight for predefined importance
+  
+  # Thresholds and normalization
+  min_score: 0.0             # Minimum score threshold (scores below become 0)
+  normalize_scores: true     # Whether to normalize scores to [0,1] range
+
+# ContextPruner specific configuration
+pruner_config:
+  # Relevance thresholds
+  node_threshold: 0.3        # Threshold for node relevance score
+  edge_threshold: 0.2        # Threshold for edge relevance score
+  
+  # Connectivity settings
+  preserve_connectivity: true     # Whether to preserve connectivity in pruned graph
+  preserve_seed_nodes: true       # Whether to always keep seed nodes
+  preserve_edge_weight_attr: "weight"  # Attribute name for edge weights
+  max_edge_distance: 3            # Maximum distance for preserving connectivity
+
+# SizeConstrainer specific configuration
+constrainer_config:
+  # Size constraints
+  max_nodes: 100             # Maximum number of nodes
+  max_edges: 500             # Maximum number of edges
+  max_density: 0.1           # Maximum edge density
+  
+  # Prioritization settings
+  prioritize_by: "relevance" # Method for prioritizing nodes ('relevance', 'degree', 'connectivity')
+  preserve_seed_nodes: true  # Whether to always keep seed nodes
+  balance_threshold: 0.5     # Balance between relevance and connectivity (0-1)
+
+# SubgraphOptimizer specific configuration
+optimizer_config:
+  # Optimization weights
+  relevance_weight: 0.6      # Weight for relevance score in optimization
+  diversity_weight: 0.2      # Weight for diversity score in optimization
+  connectivity_weight: 0.2   # Weight for connectivity score in optimization
+  
+  # Optimization parameters
+  max_iterations: 10         # Maximum iterations for optimization algorithms
+  improvement_threshold: 0.01 # Minimum improvement to continue optimization
+  random_seed: null          # Random seed for reproducibility (null = no seed)
