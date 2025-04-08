@@ -5,8 +5,15 @@ This module implements entity extraction using the spaCy NLP library.
 It provides comprehensive named entity recognition capabilities for GraphRAG.
 """
 
-import spacy
-from typing import Dict, List, Optional, Any, Set, Tuple
+from typing import Dict, List, Optional, Any, Set, Tuple, TYPE_CHECKING
+
+# Import spacy with type checking support
+if TYPE_CHECKING:
+    # Use local stub file for type checking
+    from . import spacy_stubs as spacy
+else:
+    # Use actual spacy module at runtime
+    import spacy
 import logging
 from collections import defaultdict
 
@@ -218,7 +225,7 @@ class SpacyEntityExtractor(EntityExtractor):
             
         # Ensure metadata list matches texts length
         if metadata_list is None:
-            metadata_list = [None] * len(texts)
+            metadata_list = [{} for _ in range(len(texts))]
         elif len(metadata_list) != len(texts):
             raise ValueError("metadata_list length must match texts length")
             

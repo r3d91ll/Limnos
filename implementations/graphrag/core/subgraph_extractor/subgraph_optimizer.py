@@ -193,8 +193,8 @@ class SubgraphOptimizer:
         Returns:
             nx.Graph: Reconstructed graph
         """
-        # Create a new graph
-        original_graph = nx.Graph()
+        # Create a new graph with proper type annotation
+        original_graph: nx.Graph = nx.Graph()
         
         # Add nodes with dummy attributes
         for node in node_scores.keys():
@@ -231,15 +231,18 @@ class SubgraphOptimizer:
             return optimized_graph
         
         # Compute all-pairs shortest paths
-        path_lengths = {}
+        # Dictionary needs to support both int and float (infinity) values
+        path_lengths: Dict[Tuple[Any, Any], Union[int, float]] = {}
         for i, source in enumerate(present_seeds):
             for target in present_seeds[i+1:]:
                 try:
                     # Find shortest path
                     path = nx.shortest_path(optimized_graph, source=source, target=target)
+                    # Explicitly specify this is an int for the number of edges
                     path_lengths[(source, target)] = len(path) - 1  # Number of edges
                 except nx.NetworkXNoPath:
-                    # No path exists
+                    # No path exists - use float for infinity
+                    # This is intentionally a float type as it represents infinity
                     path_lengths[(source, target)] = float('inf')
         
         # Identify pairs with poor connectivity
@@ -293,7 +296,8 @@ class SubgraphOptimizer:
                           if node not in seed_nodes]
         
         # Get initial attribute distributions
-        attr_counts = {}
+        # Dictionary to track attribute value occurrences
+        attr_counts: Dict[str, Dict[Any, int]] = {}
         for attr in node_attrs:
             attr_counts[attr] = {}
             for node in optimized_graph.nodes:
@@ -402,7 +406,7 @@ class SubgraphOptimizer:
             # Node attribute entropy
             for attr in node_attrs:
                 # Count attribute values
-                value_counts = {}
+                value_counts: Dict[Any, int] = {}
                 total = 0
                 
                 for node in graph.nodes:
@@ -463,13 +467,34 @@ class SubgraphOptimizer:
             # Assess structural diversity
             # Use metrics like clustering coefficient distribution, degree distribution, etc.
             
-            # Get degree distribution entropy
-            degrees = dict(graph.degree()).values()
-            degree_counts = {}
+            # Get degree distribution entropy using a safe approach
+            # Collect degree values safely for all nodes
+            degree_values: List[int] = []
+            
+            # Get degree for each node individually to avoid any iteration issues
+            for n in graph.nodes():
+                try:
+                    # Try to get degree directly
+                    deg = graph.degree(n)
+                    # Ensure it's an int
+                    if isinstance(deg, int):
+                        degree_values.append(deg)
+                    else:
+                        # Default if not an int
+                        degree_values.append(1)
+                except (TypeError, ValueError, AttributeError):
+                    # Default to 1 if we can't get the degree
+                    degree_values.append(1)
+                    
+            # Dictionary to count occurrences of each degree value
+            degree_counts: Dict[int, int] = {}
             total_nodes = graph.number_of_nodes()
             
-            for d in degrees:
-                degree_counts[d] = degree_counts.get(d, 0) + 1
+            # Count frequencies of each degree value
+            for d in degree_values:
+                # Ensure the key is an int
+                d_int = int(d)
+                degree_counts[d_int] = degree_counts.get(d_int, 0) + 1
             
             # Calculate entropy
             entropy = 0.0

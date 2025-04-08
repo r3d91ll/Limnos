@@ -99,7 +99,9 @@ class DocumentReference:
             
         try:
             with open(metadata_path, 'r') as f:
-                return json.load(f)
+                # Add explicit type annotation to satisfy mypy
+                result: Dict[str, Any] = json.load(f)
+                return result
         except (json.JSONDecodeError, IOError):
             return {}
     

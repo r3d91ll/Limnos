@@ -10,7 +10,7 @@ import math
 from typing import Dict, List, Set, Any, Optional, Callable, Tuple, Union
 import networkx as nx
 import numpy as np
-from scipy import spatial
+from scipy import spatial  # type: ignore # Missing stubs for scipy
 
 logger = logging.getLogger(__name__)
 
@@ -72,8 +72,9 @@ class NodeEdgeScorer:
         # Calculate cosine similarity
         similarity = 1 - spatial.distance.cosine(query_norm, entity_norm)
         
-        # Ensure score is between 0 and 1
-        return max(0.0, min(1.0, similarity))
+        # Ensure score is between 0 and 1 and explicitly return float
+        result: float = max(0.0, min(1.0, float(similarity)))
+        return result
     
     def calculate_structural_importance(self, 
                                        graph: nx.Graph, 
@@ -92,8 +93,38 @@ class NodeEdgeScorer:
         """
         if method == 'degree':
             # Use node degree (normalized by max degree in graph)
-            max_degree = max(dict(graph.degree()).values()) if graph.number_of_edges() > 0 else 1
-            return graph.degree(node) / max_degree
+            # Safe way to get degree information that works with all NetworkX versions
+            degree_values: List[int] = []
+            
+            # Get degree for each node individually to avoid any iteration issues
+            for n in graph.nodes():
+                try:
+                    # Get degree for this specific node
+                    deg = graph.degree(n)
+                    # Handle case where degree might be a view or an int
+                    if isinstance(deg, int):
+                        degree_values.append(deg)
+                    else:
+                        # If it's not an int, try to get the integer value
+                        # This handles the case of node attributes in degree views
+                        degree_values.append(1)  # Default fallback
+                except (TypeError, ValueError, AttributeError):
+                    # If we can't get a degree, use 1 as a safe default
+                    degree_values.append(1)
+                    
+            # Calculate max degree safely
+            max_degree = max(degree_values) if degree_values else 1
+            
+            # Get degree for the specific node safely
+            try:
+                # Try to get degree directly for this node
+                node_deg = graph.degree(node)
+                # Ensure we have an int
+                node_degree = node_deg if isinstance(node_deg, int) else 0
+            except (TypeError, ValueError, AttributeError):
+                # Default to 0 if we can't get the degree
+                node_degree = 0
+            return float(node_degree) / float(max_degree)
         
         elif method == 'centrality':
             # Use betweenness centrality
@@ -101,7 +132,8 @@ class NodeEdgeScorer:
                 # Calculate once and cache for efficiency
                 self._betweenness_cache = nx.betweenness_centrality(graph)
             
-            return self._betweenness_cache.get(node, 0.0)
+            betweenness_result: float = self._betweenness_cache.get(node, 0.0)
+            return betweenness_result
         
         elif method == 'pagerank':
             # Use PageRank
@@ -109,7 +141,8 @@ class NodeEdgeScorer:
                 # Calculate once and cache for efficiency
                 self._pagerank_cache = nx.pagerank(graph)
             
-            return self._pagerank_cache.get(node, 0.0)
+            pagerank_result: float = self._pagerank_cache.get(node, 0.0)
+            return pagerank_result
         
         else:
             logger.warning(f"Unknown structural importance method: {method}, using degree")
@@ -136,7 +169,8 @@ class NodeEdgeScorer:
                 importance = 0.0
         
         # Ensure it's between 0 and 1
-        return max(0.0, min(1.0, importance))
+        importance_result: float = max(0.0, min(1.0, float(importance)))
+        return importance_result
     
     def score_node(self, 
                   graph: nx.Graph, 

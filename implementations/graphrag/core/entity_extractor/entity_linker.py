@@ -48,8 +48,8 @@ class EntityLinker:
         self.entity_types_strict = self.config.get("entity_types_strict", True)
         
         # Entity cache for quick lookup
-        self.entity_cache = {}
-        self.fingerprint_cache = {}
+        self.entity_cache: Dict[str, List[Entity]] = {}
+        self.fingerprint_cache: Dict[str, Entity] = {}
         
     def link_entities(self, new_entities: List[Entity], 
                      existing_entities: List[Entity]) -> List[Entity]:
@@ -108,7 +108,11 @@ class EntityLinker:
             self.fingerprint_cache[entity.fingerprint] = entity
             
             # Cache by canonical name
-            key = entity.canonical_name.lower() if not self.case_sensitive else entity.canonical_name
+            # Handle potential None for canonical_name
+            if entity.canonical_name is None:
+                key = ""
+            else:
+                key = entity.canonical_name.lower() if not self.case_sensitive else entity.canonical_name
             if key not in self.entity_cache:
                 self.entity_cache[key] = []
             self.entity_cache[key].append(entity)
@@ -116,7 +120,11 @@ class EntityLinker:
             # Cache by aliases if enabled
             if self.use_aliases:
                 for alias in entity.aliases:
-                    alias_key = alias.lower() if not self.case_sensitive else alias
+                    # Handle potential None for alias
+                    if alias is None:
+                        alias_key = ""
+                    else:
+                        alias_key = alias.lower() if not self.case_sensitive else alias
                     if alias_key not in self.entity_cache:
                         self.entity_cache[alias_key] = []
                     self.entity_cache[alias_key].append(entity)
@@ -140,15 +148,18 @@ class EntityLinker:
         candidates = []
         if self.entity_types_strict:
             # Only consider entities of the same type
-            candidates = self.entity_cache.get(entity.entity_type, [])
+            entity_type_key = entity.entity_type if entity.entity_type is not None else ""
+            candidates = self.entity_cache.get(entity_type_key, [])
         else:
             # Consider all entities
             for entity_list in self.entity_cache.values():
                 candidates.extend(entity_list)
                 
         # If we have a canonical name match, prioritize those candidates
-        name_key = entity.canonical_name.lower() if not self.case_sensitive else entity.canonical_name
-        name_matches = self.entity_cache.get(name_key, [])
+        name_key = ""
+        if entity.canonical_name is not None:
+            name_key = entity.canonical_name.lower() if not self.case_sensitive else entity.canonical_name
+        name_matches = self.entity_cache.get(str(name_key), [])
         
         # Combine and deduplicate candidates
         all_candidates = list(set(name_matches + candidates))
@@ -179,12 +190,21 @@ class EntityLinker:
         if self.entity_types_strict and entity1.entity_type != entity2.entity_type:
             return 0.0
             
-        # Start with name similarity
-        name1 = entity1.canonical_name.lower() if not self.case_sensitive else entity1.canonical_name
-        name2 = entity2.canonical_name.lower() if not self.case_sensitive else entity2.canonical_name
+        # Start with name similarity - handle potential None values
+        name1 = ""
+        if entity1.canonical_name is not None:
+            name1 = entity1.canonical_name.lower() if not self.case_sensitive else entity1.canonical_name
+        else:
+            name1 = entity1.text.lower() if not self.case_sensitive else entity1.text
+            
+        name2 = ""
+        if entity2.canonical_name is not None:
+            name2 = entity2.canonical_name.lower() if not self.case_sensitive else entity2.canonical_name
+        else:
+            name2 = entity2.text.lower() if not self.case_sensitive else entity2.text
         
         # Use SequenceMatcher for string similarity
-        name_similarity = SequenceMatcher(None, name1, name2).ratio()
+        name_similarity = SequenceMatcher(None, str(name1), str(name2)).ratio()
         
         # Check aliases if enabled
         if self.use_aliases:
@@ -264,7 +284,9 @@ class EntityLinker:
             )
             
             # Normalize canonical name (remove extra whitespace, etc.)
-            normalized_entity.canonical_name = self._normalize_text(normalized_entity.canonical_name)
+            # Safe handling of potentially None canonical_name
+            if normalized_entity.canonical_name is not None:
+                normalized_entity.canonical_name = self._normalize_text(normalized_entity.canonical_name)
             
             # Normalize text
             normalized_entity.text = self._normalize_text(normalized_entity.text)
@@ -279,7 +301,7 @@ class EntityLinker:
             
         return normalized
     
-    def _normalize_text(self, text: str) -> str:
+    def _normalize_text(self, text: Optional[str]) -> str:
         """
         Normalize text by removing extra whitespace, etc.
         
@@ -311,7 +333,7 @@ class EntityLinker:
             NetworkX graph of entity relationships
         """
         # Create a new undirected graph
-        graph = nx.Graph()
+        graph: nx.Graph = nx.Graph()
         
         # Add entities as nodes
         for entity in entities:

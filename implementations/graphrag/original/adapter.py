@@ -17,15 +17,22 @@ sys.path.append(GRAPHRAG_DIR)
 
 # Import the Neo4j GraphRAG implementation
 try:
-    import neo4j_graphrag
-    from neo4j_graphrag.retrievers import SimpleKGPipeline, Pipeline
-    from neo4j_graphrag.llm import OpenAILLM
+    import neo4j_graphrag  # type: ignore  # Missing stub
+    from neo4j_graphrag.retrievers import SimpleKGPipeline, Pipeline  # type: ignore  # Missing stub
+    from neo4j_graphrag.llm import OpenAILLM  # type: ignore  # Missing stub
     # We'll be replacing this with Ollama in our Qwen25 implementation
 except ImportError:
     raise ImportError(
         "Neo4j GraphRAG implementation not found. "
         "Make sure the code is available at: " + GRAPHRAG_DIR
     )
+    # Define placeholder classes for type checking when imports fail
+    class SimpleKGPipeline:  # type: ignore
+        pass
+    class Pipeline:  # type: ignore
+        pass
+    class OpenAILLM:  # type: ignore
+        pass
 
 class GraphRAGAdapter:
     """Adapter for the Neo4j GraphRAG implementation."""
@@ -83,6 +90,10 @@ class GraphRAGAdapter:
         # Get parameters from kwargs with defaults
         top_k = kwargs.get("top_k", 5)
         
+        # Check if pipeline is initialized before accessing
+        if self.pipeline is None:
+            raise ValueError("Pipeline is not initialized")
+            
         # Execute the query using the pipeline
         result = self.pipeline.execute(
             query=query,
@@ -113,6 +124,14 @@ class GraphRAGAdapter:
         if not self.initialized:
             self.initialize()
         
+        # Check if pipeline is initialized before accessing
+        if self.pipeline is None:
+            raise ValueError("Pipeline is not initialized")
+            
+        # Check if retriever exists before accessing
+        if not hasattr(self.pipeline, 'retriever') or self.pipeline.retriever is None:
+            raise ValueError("Retriever is not available in the pipeline")
+            
         # Use the retriever directly to get paths without generating an answer
         paths = self.pipeline.retriever.retrieve(
             query=query, 
@@ -120,4 +139,16 @@ class GraphRAGAdapter:
             **kwargs
         )
         
-        return paths
+        # Explicitly cast the return value to ensure it matches the expected type
+        result_paths: List[Dict[str, Any]] = []
+        
+        # Convert each path to the expected format
+        if paths is not None:
+            for path in paths:
+                if isinstance(path, dict):
+                    result_paths.append(path)
+                else:
+                    # Handle potential non-dict elements by converting them
+                    result_paths.append({"path": path})
+        
+        return result_paths

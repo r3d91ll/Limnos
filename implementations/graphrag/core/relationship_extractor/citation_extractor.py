@@ -117,10 +117,12 @@ class CitationRelationshipExtractor(RelationshipExtractor):
         reference_map = {}
         for ref_entity in reference_entities:
             # Extract reference ID from canonical name (e.g., "Reference [1]")
-            ref_id_match = re.search(r'\[(\d+)\]', ref_entity.canonical_name)
-            if ref_id_match:
-                ref_id = ref_id_match.group(1)
-                reference_map[ref_id] = ref_entity
+            # Add null check for canonical_name
+            if ref_entity.canonical_name is not None:
+                ref_id_match = re.search(r'\[(\d+)\]', ref_entity.canonical_name)
+                if ref_id_match:
+                    ref_id = ref_id_match.group(1)
+                    reference_map[ref_id] = ref_entity
                 
         # For each citation, find the corresponding reference(s)
         for citation_entity in citation_entities:
@@ -283,10 +285,12 @@ class CitationRelationshipExtractor(RelationshipExtractor):
         # Create a mapping of reference IDs to reference entities
         reference_map = {}
         for ref_entity in reference_entities:
-            ref_id_match = re.search(r'\[(\d+)\]', ref_entity.canonical_name)
-            if ref_id_match:
-                ref_id = ref_id_match.group(1)
-                reference_map[ref_id] = ref_entity
+            # Add null check for canonical_name
+            if ref_entity.canonical_name is not None:
+                ref_id_match = re.search(r'\[(\d+)\]', ref_entity.canonical_name)
+                if ref_id_match:
+                    ref_id = ref_id_match.group(1)
+                    reference_map[ref_id] = ref_entity
                 
         # Extract relationships between references (based on citation patterns)
         reference_relationships = []

@@ -266,12 +266,18 @@ class ContextPruner:
             # Update node threshold for next iteration
             self.node_threshold = threshold
         
+        # Ensure we have a valid graph to return (should never be None at this point)
+        if pruned_graph is None:
+            logger.warning("Pruned graph is None, returning original graph")
+            pruned_graph = graph.copy()
+            
         logger.info(f"Adaptive pruning converged with node_threshold={threshold}, "
                    f"final graph size: {pruned_graph.number_of_nodes()} nodes")
         
         # Reset threshold to original
         self.node_threshold = threshold
         
+        # Always return a non-None graph
         return pruned_graph
     
     def prune_by_node_type(self, 
@@ -298,15 +304,16 @@ class ContextPruner:
         nodes_to_remove = []
         
         for node in graph.nodes:
-            node_type = graph.nodes[node].get(type_attr)
+            # Get node type safely with a default value if attribute doesn't exist
+            node_type = graph.nodes[node].get(type_attr, None)
             
             # Check if node should be excluded
-            if exclude_types and node_type in exclude_types:
+            if exclude_types and node_type is not None and node_type in exclude_types:
                 nodes_to_remove.append(node)
                 continue
                 
             # Check if node should be included
-            if include_types and node_type not in include_types:
+            if include_types and (node_type is None or node_type not in include_types):
                 nodes_to_remove.append(node)
         
         # Remove nodes

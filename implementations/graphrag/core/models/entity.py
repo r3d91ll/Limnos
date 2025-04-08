@@ -33,7 +33,7 @@ class Entity:
     source_document_id: Optional[str] = None
     
     # Positional information
-    positions: List[Dict[str, int]] = field(default_factory=list)
+    positions: List[Dict[str, Any]] = field(default_factory=list)
     
     # Additional metadata
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -56,9 +56,14 @@ class Entity:
         
         This is useful for deduplication and identification across documents.
         """
+        # Create a canonical name key with null check
+        canonical_name_key = ""
+        if self.canonical_name is not None:
+            canonical_name_key = self.canonical_name.lower()
+        
         key_data = {
-            "canonical_name": self.canonical_name.lower(),
-            "entity_type": self.entity_type
+            "canonical_name": canonical_name_key,
+            "entity_type": self.entity_type if self.entity_type is not None else ""
         }
         return hashlib.md5(json.dumps(key_data, sort_keys=True).encode()).hexdigest()
     
@@ -71,7 +76,7 @@ class Entity:
             end: End character position
             section: Optional section identifier (e.g., "abstract", "introduction")
         """
-        position = {"start": start, "end": end}
+        position: Dict[str, Any] = {"start": start, "end": end}
         if section:
             position["section"] = section
         self.positions.append(position)

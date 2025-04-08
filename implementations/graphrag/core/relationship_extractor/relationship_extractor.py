@@ -146,7 +146,7 @@ class RelationshipExtractor(ABC):
         Returns:
             Deduplicated list of relationships
         """
-        unique_relationships = {}
+        unique_relationships: Dict[str, Relationship] = {}
         
         for relationship in relationships:
             fingerprint = relationship.fingerprint

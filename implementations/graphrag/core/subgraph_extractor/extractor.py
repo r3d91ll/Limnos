@@ -355,7 +355,7 @@ class SubgraphExtractor:
         # Merge subgraphs according to merge method
         if merge_method == 'union':
             # Take union of all subgraphs
-            merged_graph = nx.Graph()
+            merged_graph: nx.Graph = nx.Graph()
             
             for subgraph in subgraphs:
                 for node in subgraph.nodes:
@@ -385,7 +385,7 @@ class SubgraphExtractor:
             # Weighted combination of union and intersection
             # Start with all nodes from all subgraphs
             all_nodes = set()
-            node_counts = {}  # How many subgraphs contain this node
+            node_counts: Dict[Any, int] = {}  # How many subgraphs contain this node
             
             for subgraph in subgraphs:
                 for node in subgraph.nodes:
@@ -485,7 +485,7 @@ class SubgraphExtractor:
             nx.Graph: Neighborhood subgraph
         """
         # Create a new graph for the neighborhood
-        neighborhood = nx.Graph()
+        neighborhood: nx.Graph = nx.Graph()
         
         # Add center nodes to neighborhood
         for node in center_nodes:

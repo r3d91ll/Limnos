@@ -35,8 +35,8 @@ class GraphRAGMetadataPreprocessor(MetadataExtensionPoint):
         """
         self.framework_name = "graphrag"
         self.output_dir = output_dir or Path("/home/todd/ML-Lab/Olympus/limnos/data/implementations/graphrag")
-        self.processed_documents = {}
-        self.processing_status = {}
+        self.processed_documents: Dict[str, Dict[str, Any]] = {}
+        self.processing_status: Dict[str, Dict[str, bool]] = {}
         
         # Create output directory structure according to architectural decisions
         os.makedirs(self.output_dir, exist_ok=True)
@@ -102,16 +102,22 @@ class GraphRAGMetadataPreprocessor(MetadataExtensionPoint):
         
         # Initialize or update processing status
         if doc_id not in self.processing_status:
+            # Create a status dictionary with proper typing
+            # Store the timestamp in a separate field to avoid type conflicts
             self.processing_status[doc_id] = {
                 'metadata_processed': True,
                 'entities_extracted': False,
                 'relationships_extracted': False,
-                'graph_constructed': False,
-                'last_updated': datetime.now().isoformat()
+                'graph_constructed': False
             }
+            
+            # Store timestamp separately in attributes
+            self.processed_documents.setdefault(doc_id, {})['last_updated'] = datetime.now().isoformat()
         else:
             self.processing_status[doc_id]['metadata_processed'] = True
-            self.processing_status[doc_id]['last_updated'] = datetime.now().isoformat()
+            
+            # Store timestamp separately in attributes
+            self.processed_documents.setdefault(doc_id, {})['last_updated'] = datetime.now().isoformat()
         
         return graphrag_metadata
     
@@ -157,13 +163,18 @@ class GraphRAGMetadataPreprocessor(MetadataExtensionPoint):
         Returns:
             Processing status dictionary
         """
-        return self.processing_status.get(doc_id, {
+        # Create a default status dictionary with proper typing
+        # Create a default status dictionary with boolean values only
+        default_status: Dict[str, bool] = {
             'metadata_processed': False,
             'entities_extracted': False,
             'relationships_extracted': False,
-            'graph_constructed': False,
-            'last_updated': datetime.now().isoformat()
-        })
+            'graph_constructed': False
+        }
+        
+        # Get the status with explicit typing to ensure proper return type
+        result: Dict[str, Any] = self.processing_status.get(doc_id, default_status)
+        return result
     
     def update_processing_status(self, doc_id: str, status_updates: Dict[str, bool]) -> None:
         """
@@ -174,21 +185,25 @@ class GraphRAGMetadataPreprocessor(MetadataExtensionPoint):
             status_updates: Dictionary of status updates
         """
         if doc_id not in self.processing_status:
+            # Initialize with proper typing - only boolean values
             self.processing_status[doc_id] = {
                 'metadata_processed': False,
                 'entities_extracted': False,
                 'relationships_extracted': False,
-                'graph_constructed': False,
-                'last_updated': datetime.now().isoformat()
+                'graph_constructed': False
             }
+            # Store timestamp separately in attributes
+            self.processed_documents.setdefault(doc_id, {})['last_updated'] = datetime.now().isoformat()
         
-        # Update status fields
+        # Update status fields - only update valid boolean fields
         for key, value in status_updates.items():
-            if key in self.processing_status[doc_id]:
-                self.processing_status[doc_id][key] = value
+            if key in self.processing_status[doc_id] and key != 'last_updated':
+                # Ensure we're setting boolean values
+                self.processing_status[doc_id][key] = bool(value)
         
-        # Update timestamp
-        self.processing_status[doc_id]['last_updated'] = datetime.now().isoformat()
+        # Update timestamp separately
+        # Store timestamp in document attributes instead
+        self.processed_documents.setdefault(doc_id, {})['last_updated'] = datetime.now().isoformat()
         
         # Save status to disk if document has been processed
         if doc_id in self.processed_documents:
@@ -208,10 +223,16 @@ class GraphRAGMetadataPreprocessor(MetadataExtensionPoint):
             True if fully processed, False otherwise
         """
         status = self.get_processing_status(doc_id)
-        return (status.get('metadata_processed', False) and
-                status.get('entities_extracted', False) and
-                status.get('relationships_extracted', False) and
-                status.get('graph_constructed', False))
+        # Explicitly evaluate each condition and cast to bool to ensure proper type
+        metadata_processed = bool(status.get('metadata_processed', False))
+        entities_extracted = bool(status.get('entities_extracted', False))
+        relationships_extracted = bool(status.get('relationships_extracted', False))
+        graph_constructed = bool(status.get('graph_constructed', False))
+        
+        # Return a properly typed boolean result
+        result: bool = (metadata_processed and entities_extracted and 
+                       relationships_extracted and graph_constructed)
+        return result
     
     def get_required_metadata_fields(self) -> Set[str]:
         """

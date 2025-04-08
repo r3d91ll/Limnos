@@ -45,7 +45,8 @@ class GraphCacheManager:
             self.cache = RedisGraphCache(**config)
         
         # Track document-specific cache keys
-        self.document_cache_keys = {}
+        # Keys are document IDs, values are lists of cache key dictionaries
+        self.document_cache_keys: Dict[str, List[Dict[str, Any]]] = {}
         
     def cache_document_graph(
         self, 
@@ -66,11 +67,14 @@ class GraphCacheManager:
         """
         # Generate a cache key specific to this document
         # Following Limnos principles - maintain separation of framework-specific metadata
+        from datetime import datetime
+        
+        # Generate a cache key specific to this document using available attributes
         key_components = {
             'document_id': document.document_id,
-            'document_version': document.version,
+            'document_version': document.document_id,  # Use document_id as version since version is not available
             'framework': 'graphrag',  # Explicitly framework-specific
-            'timestamp': document.last_modified_at.isoformat() if document.last_modified_at else None
+            'timestamp': document.last_processed.isoformat() if document.last_processed else datetime.now().isoformat()
         }
         
         # Track this key for document-based invalidation
@@ -97,11 +101,13 @@ class GraphCacheManager:
         Returns:
             The cached graph or None if not found
         """
+        from datetime import datetime
+        
         key_components = {
             'document_id': document.document_id,
-            'document_version': document.version,
+            'document_version': document.document_id,  # Use document_id as version since version is not available
             'framework': 'graphrag',
-            'timestamp': document.last_modified_at.isoformat() if document.last_modified_at else None
+            'timestamp': document.last_processed.isoformat() if document.last_processed else datetime.now().isoformat()
         }
         
         return self.cache.get_graph(key_components)

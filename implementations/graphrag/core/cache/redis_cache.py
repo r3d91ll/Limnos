@@ -118,7 +118,9 @@ class RedisGraphCache:
         try:
             graph_data = self.redis_client.get(key)
             if graph_data:
-                return pickle.loads(graph_data)
+                # Explicitly cast the deserialized object to ensure correct typing
+                deserialized_graph: nx.Graph = pickle.loads(graph_data)
+                return deserialized_graph
             return None
         except Exception as e:
             # Log the error in a production environment
@@ -218,11 +220,15 @@ class RedisGraphCache:
         pattern = f"{self.prefix}*"
         keys = self.redis_client.keys(pattern)
         
-        stats = {
+        # Initialize stats with proper typing for the nested dictionary
+        stats: Dict[str, Any] = {
             'total_cached_items': len(keys),
             'memory_usage_bytes': 0,
             'key_types': {}
         }
+        
+        # Explicitly type the nested dictionary for key types
+        key_types_dict: Dict[str, int] = {}
         
         # Get memory usage if available
         try:
@@ -234,6 +240,13 @@ class RedisGraphCache:
         # Count key types
         for key in keys:
             key_type = self.redis_client.type(key).decode('utf-8')
-            stats['key_types'][key_type] = stats['key_types'].get(key_type, 0) + 1
+            # Update the key type count in our properly typed dictionary
+            if key_type in key_types_dict:
+                key_types_dict[key_type] += 1
+            else:
+                key_types_dict[key_type] = 1
+                
+        # Assign the properly typed dictionary to stats
+        stats['key_types'] = key_types_dict
             
         return stats

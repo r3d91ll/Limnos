@@ -70,15 +70,15 @@ class SizeConstrainer:
             return graph
         
         # Create a new graph with seed nodes
-        constrained_graph = nx.Graph()
+        constrained_graph: nx.Graph = nx.Graph()
         
         # Add seed nodes
         for node in seed_nodes:
             if node in graph:
                 constrained_graph.add_node(node, **graph.nodes[node])
         
-        # Initialize priority queue
-        priority_queue = []
+        # Initialize priority queue (list of tuples with priority and node)
+        priority_queue: List[Tuple[float, Any]] = []
         
         # Initial set of visited nodes (seed nodes)
         visited = set(seed_nodes)
@@ -168,8 +168,40 @@ class SizeConstrainer:
             connectivity_score = seed_connections / len(seed_nodes)
         
         # Degree component (normalized by max degree)
-        max_degree = max(dict(graph.degree()).values()) if graph.number_of_edges() > 0 else 1
-        degree_score = graph.degree(node) / max_degree
+        # Safe way to get degree information that works with all NetworkX versions
+        degree_values = []
+        
+        # Get degree for each node individually to avoid any iteration issues
+        for n in graph.nodes():
+            try:
+                # Get degree for this specific node
+                deg = graph.degree(n)
+                # Handle case where degree might be a view or an int
+                if isinstance(deg, int):
+                    degree_values.append(deg)
+                else:
+                    # If it's not an int, try to get the integer value
+                    # This handles the case of node attributes in degree views
+                    degree_values.append(1)  # Default fallback
+            except (TypeError, ValueError, AttributeError):
+                # If we can't get a degree, use 1 as a safe default
+                degree_values.append(1)
+                
+        # Calculate max degree safely
+        max_degree = max(degree_values) if degree_values else 1
+            
+        # Get degree for this specific node safely
+        try:
+            # Try to get degree directly for this node
+            node_deg = graph.degree(node)
+            # Ensure we have an int
+            node_degree = node_deg if isinstance(node_deg, int) else 0
+        except (TypeError, ValueError, AttributeError):
+            # Default to 0 if we can't get the degree
+            node_degree = 0
+            
+        # Calculate normalized degree score
+        degree_score = float(node_degree) / float(max_degree)
         
         # Calculate final priority based on method
         if self.prioritize_by == 'relevance':

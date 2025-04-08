@@ -38,7 +38,7 @@ class Relationship:
     context: Optional[str] = None
     
     # Positional information (where this relationship was found in text)
-    positions: List[Dict[str, int]] = field(default_factory=list)
+    positions: List[Dict[str, Any]] = field(default_factory=list)
     
     # Additional metadata
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -77,7 +77,7 @@ class Relationship:
             end: End character position
             section: Optional section identifier (e.g., "abstract", "introduction")
         """
-        position = {"start": start, "end": end}
+        position: Dict[str, Any] = {"start": start, "end": end}
         if section:
             position["section"] = section
         self.positions.append(position)

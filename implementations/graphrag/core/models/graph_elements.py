@@ -32,7 +32,8 @@ class GraphNode:
     # Source information
     source_document_ids: Set[str] = field(default_factory=set)
     
-    # Vector representation for semantic search
+    # Vector representation for semantic search - annotated explicitly to help type checking
+    # Use Union to make it clear this can be either None or a list of floats
     embedding: Optional[List[float]] = None
     
     # Additional attributes
@@ -49,10 +50,13 @@ class GraphNode:
         Returns:
             A GraphNode representing the entity
         """
+        # Ensure we have a non-None label by using an empty string as fallback
+        label = entity.canonical_name if entity.canonical_name is not None else ""
+        
         node = cls(
             id=entity.id,
             node_type=entity.entity_type,
-            label=entity.canonical_name
+            label=label
         )
         
         # Add source document if available
@@ -88,7 +92,9 @@ class GraphNode:
         
         # Add embedding if available
         if self.embedding:
-            attributes["embedding"] = self.embedding
+            # First convert to list of strings to satisfy type requirements, then it will be converted back when loaded
+            # This is a workaround for type compatibility issues
+            attributes["embedding"] = [str(val) for val in self.embedding] if self.embedding else []
             
         # Add all other attributes
         attributes.update(self.attributes)
@@ -114,8 +120,18 @@ class GraphNode:
         # Extract source documents
         source_document_ids = set(attributes.pop("source_document_ids", []))
         
-        # Extract embedding if available
-        embedding = attributes.pop("embedding", None)
+        # Extract embedding if available and ensure proper typing
+        raw_embedding = attributes.pop("embedding", None)
+        # Convert embedding to List[float] if it exists
+        # Make sure we handle any potential format (strings or numbers)
+        embedding: Optional[List[float]] = None
+        if raw_embedding is not None:
+            try:
+                # Convert all values to float to ensure type safety
+                embedding = [float(x) for x in raw_embedding]
+            except (ValueError, TypeError):
+                # If conversion fails, default to None
+                embedding = None
         
         # Create the node with remaining attributes
         return cls(

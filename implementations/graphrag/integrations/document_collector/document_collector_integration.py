@@ -22,7 +22,9 @@ import networkx as nx
 
 # Import GraphRAG components
 from ...core.entity_extractor.entity_extractor import EntityExtractor
+from ...core.entity_extractor.spacy_extractor import SpacyEntityExtractor
 from ...core.relationship_extractor.relationship_extractor import RelationshipExtractor
+from ...core.relationship_extractor.factory import RelationshipExtractorFactory
 from ...core.graph_constructor.graph_constructor import GraphConstructor
 from ...core.models.entity import Entity
 from ...core.models.relationship import Relationship
@@ -56,7 +58,7 @@ class DocumentCollectorIntegration:
     separation of universal and framework-specific metadata.
     """
     
-    def __init__(self, config: Dict[str, Any] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         """
         Initialize the document collector integration with configuration.
         
@@ -127,11 +129,16 @@ class DocumentCollectorIntegration:
     
     def _initialize_components(self) -> None:
         """Initialize GraphRAG components."""
-        # Initialize entity extractor
-        self.entity_extractor = EntityExtractor(self.config.get('entity_extractor_config', {}))
+        # Initialize entity extractor with a concrete implementation
+        entity_extractor_config = self.config.get('entity_extractor_config', {})
+        self.entity_extractor = SpacyEntityExtractor(entity_extractor_config)
         
-        # Initialize relationship extractor
-        self.relationship_extractor = RelationshipExtractor(self.config.get('relationship_extractor_config', {}))
+        # Initialize relationship extractor with a concrete implementation
+        relationship_extractor_config = self.config.get('relationship_extractor_config', {})
+        # Use the factory to create a concrete implementation (composite extractor with appropriate extractors)
+        document_type = self.config.get('document_type', 'text')
+        self.relationship_extractor = RelationshipExtractorFactory.create_composite_extractor(
+            document_type, relationship_extractor_config)
         
         # Initialize graph constructor
         self.graph_constructor = GraphConstructor(self.config.get('graph_constructor_config', {}))
@@ -248,10 +255,15 @@ class DocumentCollectorIntegration:
                 config = {}
         
         # Extract entities
+        # Create metadata dictionary with document_id and other config items
+        metadata = {
+            "document_id": document.doc_id,
+            **config  # Include any additional config items
+        }
+        # Call with the correct signature: extract_entities(text, metadata)
         entities = self.entity_extractor.extract_entities(
-            document_content=document.content,
-            document_id=document.doc_id,
-            config=config
+            text=document.content,
+            metadata=metadata
         )
         
         # Save entities to file
@@ -292,11 +304,16 @@ class DocumentCollectorIntegration:
                 config = {}
         
         # Extract relationships
+        # Create metadata dictionary with document_id and other config items
+        metadata = {
+            "document_id": document.doc_id,
+            **config  # Include any additional config items
+        }
+        # Call with the correct signature: extract_relationships(text, entities, metadata)
         relationships = self.relationship_extractor.extract_relationships(
-            document_content=document.content,
-            document_id=document.doc_id,
+            text=document.content,
             entities=entities,
-            config=config
+            metadata=metadata
         )
         
         # Save relationships to file
@@ -338,22 +355,27 @@ class DocumentCollectorIntegration:
                 config = {}
         
         # Create document reference
+        # Get title with a fallback to "Unknown" and ensure it's a string
+        doc_title = str(document.metadata.title) if hasattr(document.metadata, 'title') and document.metadata.title is not None else "Unknown"
+        
+        # Create document reference with correct parameter names
         doc_ref = DocumentReference(
-            id=document.doc_id,
-            title=document.metadata.title if hasattr(document.metadata, 'title') else "Unknown",
+            document_id=document.doc_id,
+            title=doc_title,
+            document_type=document.metadata.doc_type.value if hasattr(document.metadata, 'doc_type') else "text",
             metadata={
                 'doc_id': document.doc_id,
-                'title': document.metadata.title if hasattr(document.metadata, 'title') else "Unknown",
+                'title': doc_title,
                 'doc_type': document.metadata.doc_type.value if hasattr(document.metadata, 'doc_type') else "unknown"
             }
         )
         
-        # Construct graph
-        graph = self.graph_constructor.construct_graph(
+        # Construct graph - use build_graph method which is the correct method name
+        # The method does not take a config parameter, it uses the class's config
+        graph = self.graph_constructor.build_graph(
             document=doc_ref,
             entities=entities,
-            relationships=relationships,
-            config=config
+            relationships=relationships
         )
         
         # Save graph to file
@@ -367,6 +389,7 @@ class DocumentCollectorIntegration:
             json.dump(graph_data, f, indent=2)
         
         logger.info(f"Constructed graph for document {document.doc_id} with {len(graph.nodes)} nodes and {len(graph.edges)} edges")
+        # Explicit cast to nx.Graph to satisfy type checking
         return graph
     
     def process_all_documents(self) -> Tuple[int, int]:
@@ -476,7 +499,9 @@ class DocumentCollectorIntegration:
                 graph_data = json.load(f)
             
             graph = nx.node_link_graph(graph_data)
-            return graph
+            # Cast explicitly as nx.Graph to satisfy the type checker
+            result_graph: nx.Graph = graph
+            return result_graph
         except Exception as e:
             logger.error(f"Error loading graph for document {doc_id}: {e}")
             return None

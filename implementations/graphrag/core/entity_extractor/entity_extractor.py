@@ -141,7 +141,7 @@ class EntityExtractor(ABC):
         Returns:
             Deduplicated list of entities
         """
-        unique_entities = {}
+        unique_entities: Dict[str, Entity] = {}
         
         for entity in entities:
             fingerprint = entity.fingerprint

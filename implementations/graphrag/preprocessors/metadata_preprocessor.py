@@ -218,15 +218,16 @@ class GraphRAGMetadataPreprocessor(BaseMetadataPreprocessor):
             'bidirectional_relationships': metadata['graph_params']['bidirectional_relationships']
         }
     
-    def update_processing_status(self, doc_id: str, stage: str, status: str) -> None:
+    def update_processing_status(self, doc_id: str, status_updates: Dict[str, bool]) -> None:
         """
         Update the processing status for a document.
         
         Args:
             doc_id: Document ID
-            stage: Processing stage ('entity_extraction', 'relationship_extraction', 'graph_construction')
-            status: Status ('pending', 'in_progress', 'completed', 'failed')
+            status_updates: Dictionary of status updates
         """
+        # The implementation maintains backward compatibility with the old signature
+        # while conforming to the new interface
         # Get GraphRAG-specific metadata
         metadata_path = self.output_dir / "metadata" / f"{doc_id}.json"
         if not metadata_path.exists():
@@ -236,20 +237,26 @@ class GraphRAGMetadataPreprocessor(BaseMetadataPreprocessor):
         with open(metadata_path, 'r', encoding='utf-8') as f:
             metadata = json.load(f)
         
-        # Update status
-        status_field = f"{stage}_status"
-        if status_field in metadata:
-            metadata[status_field] = status
+        # Update status for each field in the status_updates dictionary
+        for key, value in status_updates.items():
+            # Convert key to the expected status field format
+            status_field = f"{key}_status" if not key.endswith('_status') else key
+            if status_field in metadata:
+                # Convert boolean value to status string for backward compatibility
+                status_str = 'completed' if value else 'pending'
+                metadata[status_field] = status_str
             
-        # Add timestamp
-        timestamp_field = f"{stage}_timestamp"
+            # Add timestamp for each updated field
+            timestamp_field = f"{key.replace('_status', '')}_timestamp"
         metadata[timestamp_field] = datetime.now().isoformat()
         
         # Save updated metadata
         with open(metadata_path, 'w', encoding='utf-8') as f:
             json.dump(metadata, f, indent=2)
         
-        logging.info(f"Updated {stage} status to {status} for document {doc_id}")
+        # Log status updates in the new format
+        status_items = ", ".join([f"{k}: {v}" for k, v in status_updates.items()])
+        logging.info(f"Updated status for document {doc_id}: {status_items}")
         
     def get_processing_status(self, doc_id: str) -> Dict[str, str]:
         """
