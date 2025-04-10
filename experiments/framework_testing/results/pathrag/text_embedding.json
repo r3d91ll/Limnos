@@ -1,0 +1,94 @@
+{
+  "framework": "PathRAG",
+  "test_name": "text_embedding",
+  "start_time": "2025-04-10T11:54:01.912064",
+  "end_time": "2025-04-10T11:54:03.284909",
+  "timing_metrics": {
+    "initialize_vector_store": {
+      "operation": "initialize_vector_store",
+      "start_time": 1744304041.9120708,
+      "end_time": 1744304042.9567144,
+      "duration_ms": 1044.6436405181885
+    },
+    "embed_short_text": {
+      "operation": "embed_short_text",
+      "start_time": 1744304042.9567223,
+      "end_time": 1744304043.2702127,
+      "duration_ms": 313.4903907775879
+    },
+    "embed_medium_text": {
+      "operation": "embed_medium_text",
+      "start_time": 1744304043.2702205,
+      "end_time": 1744304043.27765,
+      "duration_ms": 7.429599761962891
+    },
+    "embed_long_text": {
+      "operation": "embed_long_text",
+      "start_time": 1744304043.277655,
+      "end_time": 1744304043.2848327,
+      "duration_ms": 7.177829742431641
+    }
+  },
+  "memory_metrics": {
+    "memory_initialization": {
+      "operation": "memory_initialization",
+      "start_memory_bytes": 939819008,
+      "peak_memory_bytes": 5530431,
+      "end_memory_bytes": 942964736,
+      "difference_bytes": 3145728
+    },
+    "memory_embed_short": {
+      "operation": "memory_embed_short",
+      "start_memory_bytes": 942964736,
+      "peak_memory_bytes": 42391,
+      "end_memory_bytes": 1221926912,
+      "difference_bytes": 278962176
+    },
+    "memory_embed_medium": {
+      "operation": "memory_embed_medium",
+      "start_memory_bytes": 1221926912,
+      "peak_memory_bytes": 42375,
+      "end_memory_bytes": 1221926912,
+      "difference_bytes": 0
+    },
+    "memory_embed_long": {
+      "operation": "memory_embed_long",
+      "start_memory_bytes": 1221926912,
+      "peak_memory_bytes": 42351,
+      "end_memory_bytes": 1221926912,
+      "difference_bytes": 0
+    }
+  },
+  "storage_metrics": {},
+  "additional_metrics": {
+    "embedding_results": {
+      "short": {
+        "shape": [
+          384
+        ],
+        "mean": 0.00014455507334787399,
+        "std": 0.051030829548835754,
+        "min": -0.16306903958320618,
+        "max": 0.15295207500457764
+      },
+      "medium": {
+        "shape": [
+          384
+        ],
+        "mean": -0.0002586040645837784,
+        "std": 0.05103038251399994,
+        "min": -0.1575617492198944,
+        "max": 0.15768712759017944
+      },
+      "long": {
+        "shape": [
+          384
+        ],
+        "mean": -0.0020630410872399807,
+        "std": 0.05098931863903999,
+        "min": -0.13794434070587158,
+        "max": 0.13527357578277588
+      }
+    }
+  }
+}

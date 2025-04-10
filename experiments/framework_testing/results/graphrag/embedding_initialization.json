@@ -1,0 +1,57 @@
+{
+  "framework": "GraphRAG",
+  "test_name": "embedding_initialization",
+  "start_time": "2025-04-10T11:54:05.222470",
+  "end_time": "2025-04-10T11:54:05.223253",
+  "timing_metrics": {
+    "initialize_config_1": {
+      "operation": "initialize_config_1",
+      "start_time": 1744304045.2224758,
+      "end_time": 1744304045.2228768,
+      "duration_ms": 0.4010200500488281
+    },
+    "initialize_config_2": {
+      "operation": "initialize_config_2",
+      "start_time": 1744304045.22288,
+      "end_time": 1744304045.2232172,
+      "duration_ms": 0.33736228942871094
+    }
+  },
+  "memory_metrics": {
+    "memory_config_1": {
+      "operation": "memory_config_1",
+      "start_memory_bytes": 1244930048,
+      "peak_memory_bytes": 42303,
+      "end_memory_bytes": 1244930048,
+      "difference_bytes": 0
+    },
+    "memory_config_2": {
+      "operation": "memory_config_2",
+      "start_memory_bytes": 1244930048,
+      "peak_memory_bytes": 42303,
+      "end_memory_bytes": 1244930048,
+      "difference_bytes": 0
+    }
+  },
+  "storage_metrics": {},
+  "additional_metrics": {
+    "initialization_results": {
+      "config_1": {
+        "config": {
+          "embedding_model": "sentence-transformers",
+          "embedding_model_name": "all-MiniLM-L6-v2"
+        },
+        "initialized": false,
+        "optimized": true
+      },
+      "config_2": {
+        "config": {
+          "embedding_model": "huggingface",
+          "embedding_model_name": "sentence-transformers/all-MiniLM-L6-v2"
+        },
+        "initialized": false,
+        "optimized": true
+      }
+    }
+  }
+}

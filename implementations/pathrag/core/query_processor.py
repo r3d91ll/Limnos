@@ -18,7 +18,7 @@ import numpy as np
 from .entity_extractor import EntityExtractor
 from .relationship_extractor import RelationshipExtractor
 from .path_constructor import PathConstructor
-from .path_structures import Path, PathNode, PathEdge
+from .path_structures import Path as RagPath, PathNode, PathEdge  # Rename to avoid conflicts with pathlib.Path
 from .path_vector_store import PathVectorStore
 from .path_storage_manager import PathStorageManager
 
@@ -44,7 +44,7 @@ class QueryProcessor:
     Also known as Hermes in the Limnos mythology-based naming scheme.
     """
     
-    def __init__(self, config: Dict[str, Any] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         """
         Initialize the query processor with configuration.
         
@@ -54,17 +54,17 @@ class QueryProcessor:
         self.config = config or {}
         
         # Initialize entity and relationship extractors
-        self.entity_extractor = EntityExtractor(self.config.get('entity_extractor_config', {}))
-        self.relationship_extractor = RelationshipExtractor(self.config.get('relationship_extractor_config', {}))
-        self.path_constructor = PathConstructor(self.config.get('path_constructor_config', {}))
+        self.entity_extractor: EntityExtractor = EntityExtractor(self.config.get('entity_extractor_config', {}))
+        self.relationship_extractor: RelationshipExtractor = RelationshipExtractor(self.config.get('relationship_extractor_config', {}))
+        self.path_constructor: PathConstructor = PathConstructor(self.config.get('path_constructor_config', {}))
         
         # Initialize storage manager
-        self.storage_manager = None
+        self.storage_manager: Optional[PathStorageManager] = None
         if self.config.get('initialize_storage', True):
             self.storage_manager = PathStorageManager(self.config.get('storage_manager_config', {}))
         
         # Query classification patterns
-        self.query_patterns = {
+        self.query_patterns: Dict[QueryType, List[str]] = {
             QueryType.FACTOID: [
                 r"^(who|what|when|where)\s", 
                 r"^(name|list|identify|tell me)\s",
@@ -95,16 +95,16 @@ class QueryProcessor:
         }
         
         # Maximum number of entities to extract from a query
-        self.max_query_entities = self.config.get('max_query_entities', 5)
+        self.max_query_entities: int = self.config.get('max_query_entities', 5)
         
         # Maximum number of search paths to generate
-        self.max_search_paths = self.config.get('max_search_paths', 10)
+        self.max_search_paths: int = self.config.get('max_search_paths', 10)
         
         # Whether to perform vector-based semantic search alongside path search
-        self.use_semantic_search = self.config.get('use_semantic_search', True)
+        self.use_semantic_search: bool = self.config.get('use_semantic_search', True)
         
         # Threshold for entity confidence in queries
-        self.entity_confidence_threshold = self.config.get('entity_confidence_threshold', 0.3)
+        self.entity_confidence_threshold: float = self.config.get('entity_confidence_threshold', 0.3)
     
     def process_query(self, query_text: str) -> Dict[str, Any]:
         """
@@ -250,7 +250,7 @@ class QueryProcessor:
         Returns:
             List of search path dictionaries
         """
-        search_paths = []
+        search_paths: List[Dict[str, Any]] = []
         
         # If no entities, return empty list
         if not query_entities:
@@ -439,6 +439,9 @@ class QueryProcessor:
         max_results = search_params.get('max_results', 10)
         
         # Execute the advanced search
+        if self.storage_manager is None:
+            raise ValueError("Storage manager not initialized. Cannot execute query.")
+        
         paths = self.storage_manager.advanced_search(
             entity_texts=entity_texts,
             entity_types=entity_types,
@@ -459,12 +462,14 @@ class QueryProcessor:
             ))
             
             # Get universal metadata for documents
-            documents = []
+            documents: List[Dict[str, Any]] = []
             
-            for doc_id in document_ids:
-                metadata = self.storage_manager.check_document_universal_metadata(doc_id)
-                if metadata:
-                    documents.append(metadata)
+            if self.storage_manager is not None:
+                for doc_id in document_ids:
+                    if doc_id is not None and isinstance(doc_id, str):
+                        metadata = self.storage_manager.check_document_universal_metadata(doc_id)
+                        if metadata:
+                            documents.append(metadata)
             
             # Add to results
             results.append({
@@ -474,7 +479,16 @@ class QueryProcessor:
             })
         
         # Sort by score (descending)
-        results.sort(key=lambda x: x.get('score', 0), reverse=True)
+        # Use a sorting function that handles different types safely
+        def get_sort_key(item: Dict[str, Any]) -> float:
+            score = item.get('score')
+            if score is None:
+                return 0.0
+            if isinstance(score, (int, float)):
+                return float(score)
+            return 0.0
+            
+        results.sort(key=get_sort_key, reverse=True)
         
         return results
     

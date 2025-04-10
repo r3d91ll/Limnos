@@ -1,0 +1,99 @@
+{
+  "initialization": {
+    "config_1": {
+      "config": {
+        "embedding_model": "sentence-transformers",
+        "embedding_model_name": "all-MiniLM-L6-v2"
+      },
+      "initialized": false,
+      "optimized": true
+    },
+    "config_2": {
+      "config": {
+        "embedding_model": "huggingface",
+        "embedding_model_name": "sentence-transformers/all-MiniLM-L6-v2"
+      },
+      "initialized": false,
+      "optimized": true
+    }
+  },
+  "text_embedding": {
+    "short": {
+      "shape": [
+        384
+      ],
+      "mean": 0.00014455507334787399,
+      "std": 0.051030829548835754,
+      "min": -0.16306903958320618,
+      "max": 0.15295207500457764
+    },
+    "medium": {
+      "shape": [
+        384
+      ],
+      "mean": -0.00025860383175313473,
+      "std": 0.05103037878870964,
+      "min": -0.15756173431873322,
+      "max": 0.15768711268901825
+    },
+    "long": {
+      "shape": [
+        384
+      ],
+      "mean": -0.0020630410872399807,
+      "std": 0.05098931863903999,
+      "min": -0.13794434070587158,
+      "max": 0.13527357578277588
+    }
+  },
+  "node_embedding": {
+    "concept": {
+      "node_text": "Neural Networks: A neural network is a series of algorithms that endeavors to recognize underlying relationships in a set of data.",
+      "shape": [
+        384
+      ],
+      "mean": -0.0004696974065154791,
+      "std": 0.05102887004613876,
+      "min": -0.15403999388217926,
+      "max": 0.13643822073936462
+    },
+    "term": {
+      "node_text": "Deep Learning: Deep learning is a subset of machine learning that uses neural networks with many layers.",
+      "shape": [
+        384
+      ],
+      "mean": 0.00017079338431358337,
+      "std": 0.05103075131773949,
+      "min": -0.14082366228103638,
+      "max": 0.15661340951919556
+    },
+    "entity": {
+      "node_text": "TensorFlow: TensorFlow is an open-source machine learning framework developed by Google.",
+      "shape": [
+        384
+      ],
+      "mean": 0.0010854050051420927,
+      "std": 0.051019493490457535,
+      "min": -0.15711593627929688,
+      "max": 0.136026531457901
+    }
+  },
+  "semantic_search": {
+    "indexed_count": 5,
+    "query": "deep neural networks",
+    "results": [
+      {
+        "node_id": "node2",
+        "score": 0.7549642324447632
+      },
+      {
+        "node_id": "node4",
+        "score": 0.6860186457633972
+      },
+      {
+        "node_id": "node1",
+        "score": 0.5868938565254211
+      }
+    ]
+  }
+}

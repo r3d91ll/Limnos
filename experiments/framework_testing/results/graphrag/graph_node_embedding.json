@@ -1,0 +1,97 @@
+{
+  "framework": "GraphRAG",
+  "test_name": "graph_node_embedding",
+  "start_time": "2025-04-10T11:54:08.009180",
+  "end_time": "2025-04-10T11:54:10.458022",
+  "timing_metrics": {
+    "initialize_optimized_search": {
+      "operation": "initialize_optimized_search",
+      "start_time": 1744304048.009186,
+      "end_time": 1744304048.0093875,
+      "duration_ms": 0.2014636993408203
+    },
+    "embed_concept_node": {
+      "operation": "embed_concept_node",
+      "start_time": 1744304048.0093918,
+      "end_time": 1744304048.9232044,
+      "duration_ms": 913.8126373291016
+    },
+    "embed_term_node": {
+      "operation": "embed_term_node",
+      "start_time": 1744304048.9232125,
+      "end_time": 1744304049.7330875,
+      "duration_ms": 809.8750114440918
+    },
+    "embed_entity_node": {
+      "operation": "embed_entity_node",
+      "start_time": 1744304049.7330952,
+      "end_time": 1744304050.4579473,
+      "duration_ms": 724.8520851135254
+    }
+  },
+  "memory_metrics": {
+    "memory_initialization": {
+      "operation": "memory_initialization",
+      "start_memory_bytes": 1262231552,
+      "peak_memory_bytes": 42303,
+      "end_memory_bytes": 1262231552,
+      "difference_bytes": 0
+    },
+    "memory_embed_concept": {
+      "operation": "memory_embed_concept",
+      "start_memory_bytes": 1262231552,
+      "peak_memory_bytes": 5529539,
+      "end_memory_bytes": 1268523008,
+      "difference_bytes": 6291456
+    },
+    "memory_embed_term": {
+      "operation": "memory_embed_term",
+      "start_memory_bytes": 1268523008,
+      "peak_memory_bytes": 5528691,
+      "end_memory_bytes": 1272848384,
+      "difference_bytes": 4325376
+    },
+    "memory_embed_entity": {
+      "operation": "memory_embed_entity",
+      "start_memory_bytes": 1272848384,
+      "peak_memory_bytes": 5527288,
+      "end_memory_bytes": 1275207680,
+      "difference_bytes": 2359296
+    }
+  },
+  "storage_metrics": {},
+  "additional_metrics": {
+    "node_embedding_results": {
+      "concept": {
+        "node_text": "Neural Networks: A neural network is a series of algorithms that endeavors to recognize underlying relationships in a set of data.",
+        "shape": [
+          384
+        ],
+        "mean": -0.0004696974065154791,
+        "std": 0.05102887004613876,
+        "min": -0.15403999388217926,
+        "max": 0.13643822073936462
+      },
+      "term": {
+        "node_text": "Deep Learning: Deep learning is a subset of machine learning that uses neural networks with many layers.",
+        "shape": [
+          384
+        ],
+        "mean": 0.00017079338431358337,
+        "std": 0.05103075131773949,
+        "min": -0.14082366228103638,
+        "max": 0.15661340951919556
+      },
+      "entity": {
+        "node_text": "TensorFlow: TensorFlow is an open-source machine learning framework developed by Google.",
+        "shape": [
+          384
+        ],
+        "mean": 0.0010854050051420927,
+        "std": 0.051019493490457535,
+        "min": -0.15711593627929688,
+        "max": 0.136026531457901
+      }
+    }
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "initialization": {
+    "sentence_transformers": {
+      "model_initialized": true,
+      "model_type": "<class 'sentence_transformers.SentenceTransformer.SentenceTransformer'>"
+    }
+  },
+  "text_embedding": {
+    "short": {
+      "shape": [
+        384
+      ],
+      "mean": 0.00014455507334787399,
+      "std": 0.051030829548835754,
+      "min": -0.16306903958320618,
+      "max": 0.15295207500457764
+    },
+    "medium": {
+      "shape": [
+        384
+      ],
+      "mean": -0.0002586040645837784,
+      "std": 0.05103038251399994,
+      "min": -0.1575617492198944,
+      "max": 0.15768712759017944
+    },
+    "long": {
+      "shape": [
+        384
+      ],
+      "mean": -0.0020630410872399807,
+      "std": 0.05098931863903999,
+      "min": -0.13794434070587158,
+      "max": 0.13527357578277588
+    }
+  },
+  "path_embedding": {
+    "short_path": {
+      "path_text": "Neural Networks (is_related_to) Deep Learning",
+      "shape": [
+        384
+      ],
+      "mean": -0.00021672861475963145,
+      "std": 0.05103057622909546,
+      "min": -0.16563309729099274,
+      "max": 0.12170860916376114
+    },
+    "medium_path": {
+      "path_text": "Neural Networks (is_related_to) Deep Learning (is_subset_of) Machine Learning (is_subset_of) Artificial Intelligence",
+      "shape": [
+        384
+      ],
+      "mean": 2.510418880774523e-06,
+      "std": 0.05103103816509247,
+      "min": -0.14716002345085144,
+      "max": 0.1543145328760147
+    }
+  },
+  "storage": {
+    "store": {
+      "save_path": "/tmp/tmpa8dc7plm/path_embeddings.pkl",
+      "num_embeddings": 5
+    },
+    "load": {
+      "after_clear": 0,
+      "after_load": 5
+    },
+    "retrieval": {
+      "semantic_search": [
+        {
+          "path_id": "path0",
+          "score": 0.6245638132095337
+        },
+        {
+          "path_id": "path1",
+          "score": 0.5993592143058777
+        },
+        {
+          "path_id": "path2",
+          "score": 0.5692408084869385
+        }
+      ],
+      "similar_paths": [
+        {
+          "path_id": "path3",
+          "score": 0.917109489440918
+        },
+        {
+          "path_id": "path1",
+          "score": 0.9155042171478271
+        },
+        {
+          "path_id": "path2",
+          "score": 0.9025292992591858
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "framework": "GraphRAG",
+  "test_name": "semantic_search",
+  "start_time": "2025-04-10T11:54:10.466593",
+  "end_time": "2025-04-10T11:54:11.524144",
+  "timing_metrics": {
+    "initialize_search_engine": {
+      "operation": "initialize_search_engine",
+      "start_time": 1744304050.4666977,
+      "end_time": 1744304050.46718,
+      "duration_ms": 0.48232078552246094
+    },
+    "create_test_graph": {
+      "operation": "create_test_graph",
+      "start_time": 1744304050.467183,
+      "end_time": 1744304050.4673834,
+      "duration_ms": 0.2002716064453125
+    },
+    "index_graph": {
+      "operation": "index_graph",
+      "start_time": 1744304050.4673853,
+      "end_time": 1744304051.5175235,
+      "duration_ms": 1050.138235092163
+    },
+    "semantic_search": {
+      "operation": "semantic_search",
+      "start_time": 1744304051.5175307,
+      "end_time": 1744304051.523993,
+      "duration_ms": 6.462335586547852
+    }
+  },
+  "memory_metrics": {
+    "memory_initialization": {
+      "operation": "memory_initialization",
+      "start_memory_bytes": 1275207680,
+      "peak_memory_bytes": 42303,
+      "end_memory_bytes": 1275207680,
+      "difference_bytes": 0
+    },
+    "memory_create_graph": {
+      "operation": "memory_create_graph",
+      "start_memory_bytes": 1275207680,
+      "peak_memory_bytes": 42303,
+      "end_memory_bytes": 1275207680,
+      "difference_bytes": 0
+    },
+    "memory_index_graph": {
+      "operation": "memory_index_graph",
+      "start_memory_bytes": 1275207680,
+      "peak_memory_bytes": 5529840,
+      "end_memory_bytes": 1280712704,
+      "difference_bytes": 5505024
+    },
+    "memory_semantic_search": {
+      "operation": "memory_semantic_search",
+      "start_memory_bytes": 1280712704,
+      "peak_memory_bytes": 42303,
+      "end_memory_bytes": 1280712704,
+      "difference_bytes": 0
+    }
+  },
+  "storage_metrics": {},
+  "additional_metrics": {
+    "search_results": {
+      "indexed_count": 5,
+      "query": "deep neural networks",
+      "results": [
+        {
+          "node_id": "node2",
+          "score": 0.7549642324447632
+        },
+        {
+          "node_id": "node4",
+          "score": 0.6860186457633972
+        },
+        {
+          "node_id": "node1",
+          "score": 0.5868938565254211
+        }
+      ]
+    }
+  }
+}

@@ -11,11 +11,12 @@ and semantic relevance to rank documents by their relevance to the query.
 
 import logging
 import math
+import re
 from typing import List, Dict, Any, Tuple, Optional, Union, Set, Callable
 import numpy as np
 from collections import Counter, defaultdict
 
-from .path_structures import Path, PathNode, PathEdge
+from .path_structures import Path as RagPath, PathNode, PathEdge
 from .path_vector_store import PathVectorStore
 from .path_storage_manager import PathStorageManager
 
@@ -32,7 +33,7 @@ class DocumentRanker:
     Also known as Apollo in the Limnos mythology-based naming scheme.
     """
     
-    def __init__(self, config: Dict[str, Any] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         """
         Initialize the document ranker with configuration.
         
@@ -50,6 +51,11 @@ class DocumentRanker:
             'document_recency': self.config.get('document_recency_weight', 0.1)
         }
         
+        # Initialize components
+        self.vector_store: Optional[PathVectorStore] = None
+        self.storage_manager: Optional[PathStorageManager] = None
+        self.custom_scoring_functions: Dict[str, Callable] = {}
+        
         # Normalize weights to sum to 1.0
         total_weight = sum(self.weights.values())
         if total_weight > 0:
@@ -61,8 +67,8 @@ class DocumentRanker:
         # Number of paths to consider for document ranking
         self.max_paths_per_document = self.config.get('max_paths_per_document', 10)
         
-        # Custom scoring functions registry
-        self.custom_scoring_functions: Dict[str, Callable] = {}
+        # Maximum paths per document for ranking
+        # (custom_scoring_functions is initialized earlier)
         
         # Storage manager (for document metadata)
         self.storage_manager = None
@@ -96,7 +102,7 @@ class DocumentRanker:
         self.custom_scoring_functions[name] = function
         logger.info(f"Registered custom scoring function: {name}")
     
-    def _get_paths_by_document(self, paths: List[Path]) -> Dict[str, List[Path]]:
+    def _get_paths_by_document(self, paths: List[RagPath]) -> Dict[str, List[RagPath]]:
         """
         Group paths by document.
         
@@ -106,7 +112,7 @@ class DocumentRanker:
         Returns:
             Dictionary mapping document IDs to lists of paths
         """
-        doc_paths: Dict[str, List[Path]] = defaultdict(list)
+        doc_paths: Dict[str, List[RagPath]] = defaultdict(list)
         
         for path in paths:
             # Extract document IDs from path nodes
@@ -121,7 +127,7 @@ class DocumentRanker:
     def _compute_entity_overlap_score(
         self, 
         query_entities: List[Dict[str, Any]], 
-        paths: List[Path]
+        paths: List[RagPath]
     ) -> float:
         """
         Compute entity overlap score between query entities and paths.
@@ -154,7 +160,7 @@ class DocumentRanker:
     def _compute_relationship_strength_score(
         self, 
         query_relationships: List[Dict[str, Any]], 
-        paths: List[Path]
+        paths: List[RagPath]
     ) -> float:
         """
         Compute relationship strength score between query relationships and paths.
@@ -192,7 +198,7 @@ class DocumentRanker:
     def _compute_semantic_similarity_score(
         self, 
         query_text: str, 
-        paths: List[Path]
+        paths: List[RagPath]
     ) -> float:
         """
         Compute semantic similarity score between query and paths.
@@ -282,7 +288,7 @@ class DocumentRanker:
         except (ValueError, TypeError):
             return default_recency
     
-    def _aggregate_path_scores(self, paths: List[Path]) -> float:
+    def _aggregate_path_scores(self, paths: List[RagPath]) -> float:
         """
         Aggregate scores from multiple paths.
         
@@ -313,7 +319,7 @@ class DocumentRanker:
         self,
         query: Dict[str, Any],
         documents: Dict[str, Dict[str, Any]],
-        doc_paths: Dict[str, List[Path]],
+        doc_paths: Dict[str, List[RagPath]],
         scores: Dict[str, float]
     ) -> None:
         """
@@ -345,9 +351,9 @@ class DocumentRanker:
     def rank_documents(
         self,
         query: Dict[str, Any],
-        paths: List[Path],
+        paths: List[RagPath],
         top_k: int = 10
-    ) -> List[Tuple[str, float, List[Path]]]:
+    ) -> List[Tuple[str, float, List[RagPath]]]:
         """
         Rank documents based on path relevance to the query.
         
@@ -363,7 +369,7 @@ class DocumentRanker:
         doc_paths = self._get_paths_by_document(paths)
         
         # Get document metadata
-        documents = {}
+        documents: Dict[str, Dict[str, Any]] = {}
         if self.storage_manager:
             for doc_id in doc_paths.keys():
                 metadata = self.storage_manager.check_document_universal_metadata(doc_id)
@@ -371,30 +377,59 @@ class DocumentRanker:
                     documents[doc_id] = metadata
         
         # Compute scores for each document
-        scores = {}
+        scores: Dict[str, float] = {}
         
         query_entities = query.get('entities', [])
         query_relationships = query.get('relationships', [])
         query_text = query.get('processed_query', query.get('original_query', ''))
         
-        for doc_id, doc_paths in doc_paths.items():
+        # Fix potential incompatible type issue by ensuring we have the right type
+        if not isinstance(doc_paths, dict):
+            # Convert to dictionary format if it's not already
+            doc_paths_dict: Dict[str, List[RagPath]] = {}
+            for path in doc_paths:
+                for node in path.nodes:
+                    if node.metadata and 'document_id' in node.metadata:
+                        doc_id = node.metadata['document_id']
+                        if doc_id not in doc_paths_dict:
+                            doc_paths_dict[doc_id] = []
+                        doc_paths_dict[doc_id].append(path)
+            doc_paths = doc_paths_dict
+            
+        for doc_id, doc_path_list in doc_paths.items():
+            # Get document paths as a list for scoring methods
+            paths_list: List[RagPath] = doc_path_list
+            
+            # Safety check - ensure we're working with a list
+            if not isinstance(paths_list, list):
+                logger.warning(f"Expected a list of paths, got {type(paths_list)}")
+                # Create an empty list as a fallback
+                paths_list = []
+            
             # Compute individual score components
-            path_score = self._aggregate_path_scores(doc_paths)
-            entity_overlap = self._compute_entity_overlap_score(query_entities, doc_paths)
-            relationship_strength = self._compute_relationship_strength_score(query_relationships, doc_paths)
-            semantic_similarity = self._compute_semantic_similarity_score(query_text, doc_paths)
+            path_score = self._aggregate_path_scores(paths_list)
+            entity_overlap = self._compute_entity_overlap_score(query_entities, paths_list)
+            relationship_strength = self._compute_relationship_strength_score(query_relationships, paths_list)
+            semantic_similarity = self._compute_semantic_similarity_score(query_text, paths_list)
             
             # Get document recency score
-            doc_metadata = documents.get(doc_id, {})
+            doc_metadata: Dict[str, Any] = documents.get(doc_id, {})
             recency_score = self._compute_document_recency_score(doc_metadata)
             
             # Compute weighted score
+            # Ensure all score components are properly initialized before using them
+            path_score_val = 0.0 if path_score is None else path_score
+            entity_overlap_val = 0.0 if entity_overlap is None else entity_overlap
+            relationship_strength_val = 0.0 if relationship_strength is None else relationship_strength
+            semantic_similarity_val = 0.0 if semantic_similarity is None else semantic_similarity
+            recency_score_val = 0.0 if recency_score is None else recency_score
+            
             score = (
-                path_score * self.weights['path_score'] +
-                entity_overlap * self.weights['entity_overlap'] +
-                relationship_strength * self.weights['relationship_strength'] +
-                semantic_similarity * self.weights['semantic_similarity'] +
-                recency_score * self.weights['document_recency']
+                path_score_val * self.weights['path_score'] +
+                entity_overlap_val * self.weights['entity_overlap'] +
+                relationship_strength_val * self.weights['relationship_strength'] +
+                semantic_similarity_val * self.weights['semantic_similarity'] +
+                recency_score_val * self.weights['document_recency']
             )
             
             scores[doc_id] = score
@@ -413,7 +448,7 @@ class DocumentRanker:
     
     def format_ranked_documents(
         self,
-        ranked_docs: List[Tuple[str, float, List[Path]]],
+        ranked_docs: List[Tuple[str, float, List[RagPath]]],
         include_paths: bool = True,
         include_score_details: bool = False
     ) -> List[Dict[str, Any]]:
@@ -471,7 +506,7 @@ class DocumentRanker:
     def rank_and_format_documents(
         self,
         query: Dict[str, Any],
-        paths: List[Path],
+        paths: List[RagPath],
         top_k: int = 10,
         include_paths: bool = True,
         include_score_details: bool = False

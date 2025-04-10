@@ -1,0 +1,32 @@
+{
+  "framework": "PathRAG",
+  "test_name": "embedding_initialization",
+  "start_time": "2025-04-10T11:53:51.376279",
+  "end_time": "2025-04-10T11:54:01.902102",
+  "timing_metrics": {
+    "initialize_sentence_transformers": {
+      "operation": "initialize_sentence_transformers",
+      "start_time": 1744304031.3762887,
+      "end_time": 1744304041.9020126,
+      "duration_ms": 10525.723934173584
+    }
+  },
+  "memory_metrics": {
+    "memory_sentence_transformers": {
+      "operation": "memory_sentence_transformers",
+      "start_memory_bytes": 473837568,
+      "peak_memory_bytes": 151137557,
+      "end_memory_bytes": 939819008,
+      "difference_bytes": 465981440
+    }
+  },
+  "storage_metrics": {},
+  "additional_metrics": {
+    "initialization_results": {
+      "sentence_transformers": {
+        "model_initialized": true,
+        "model_type": "<class 'sentence_transformers.SentenceTransformer.SentenceTransformer'>"
+      }
+    }
+  }
+}

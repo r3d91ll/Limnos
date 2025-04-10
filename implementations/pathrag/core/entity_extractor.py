@@ -6,9 +6,33 @@ It identifies entities from document content that will serve as nodes in the pat
 """
 
 import re
-import spacy
-from typing import List, Dict, Any, Optional, Set, Tuple
+from typing import List, Dict, Any, Optional, Set, Tuple, TYPE_CHECKING, cast, Union
 import logging
+
+# Conditional import for type checking
+if TYPE_CHECKING:
+    # Define minimal stubs for type checking
+    class SpacyDoc:
+        """Stub for spaCy Doc"""
+        ents: List[Any]
+        noun_chunks: List[Any]
+        
+    class SpacyLanguage:
+        """Stub for spaCy Language"""
+        pipe_names: List[str]
+        
+        def add_pipe(self, name: str, *, before: Optional[str] = None) -> Any: ...
+        def __call__(self, text: str) -> SpacyDoc: ...
+    
+    # Mock the spacy module for type checking
+    class SpacyModule:
+        """Stub for spaCy module"""
+        @staticmethod
+        def load(model_name: str) -> SpacyLanguage: ...
+    
+    spacy = SpacyModule()
+else:
+    import spacy
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -21,7 +45,7 @@ class EntityExtractor:
     that form the foundation of path-based retrieval.
     """
     
-    def __init__(self, config: Dict[str, Any] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         """
         Initialize the entity extractor with configuration.
         
@@ -29,7 +53,11 @@ class EntityExtractor:
             config: Configuration dictionary with options for entity extraction
         """
         self.config = config or {}
-        self.nlp = None
+        # Using conditional type for self.nlp 
+        if TYPE_CHECKING:
+            self.nlp: Optional['SpacyLanguage'] = None
+        else:
+            self.nlp = None
         self.initialized = False
         
         # Entity type mapping for consistent representation
@@ -82,7 +110,8 @@ class EntityExtractor:
             self.nlp = spacy.load(model_name)
         
         # Add custom entity patterns if provided
-        if self.custom_patterns and "entity_ruler" not in self.nlp.pipe_names:
+        # Add null checking to prevent attribute errors
+        if self.nlp is not None and self.custom_patterns and "entity_ruler" not in self.nlp.pipe_names:
             ruler = self.nlp.add_pipe("entity_ruler", before="ner")
             ruler.add_patterns(self.custom_patterns)
             logger.info(f"Added {len(self.custom_patterns)} custom entity patterns")
@@ -102,12 +131,16 @@ class EntityExtractor:
         if not self.initialized:
             self.initialize()
         
-        # Process the text with spaCy
+        # Process the text with spaCy if nlp is initialized
+        if self.nlp is None:
+            logger.error("NLP pipeline not initialized")
+            return []
+            
         doc = self.nlp(text)
         
         # Extract named entities
         entities = []
-        entity_counts = {}
+        entity_counts: Dict[Tuple[str, str], int] = {}
         
         # Process named entities from spaCy's NER
         for ent in doc.ents:

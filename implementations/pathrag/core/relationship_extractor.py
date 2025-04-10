@@ -6,11 +6,27 @@ It identifies relationships between entities that will serve as edges in the pat
 """
 
 import re
-from typing import List, Dict, Any, Tuple, Set, Optional
+from typing import List, Dict, Any, Tuple, Set, Optional, Union, TYPE_CHECKING
 import logging
 import networkx as nx
-import spacy
-from spacy.tokens import Doc
+
+# Use conditional imports to avoid problems with missing type stubs
+if TYPE_CHECKING:
+    import spacy
+    from spacy.tokens import Doc, Token, Span
+    from spacy.language import Language
+else:
+    try:
+        import spacy
+        from spacy.tokens import Doc, Token, Span
+        from spacy.language import Language
+    except ImportError:
+        # Define placeholder types for runtime when spaCy isn't available
+        spacy = None
+        Doc = object
+        Token = object
+        Span = object
+        Language = object
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -23,7 +39,7 @@ class RelationshipExtractor:
     forming the edges in the path-based retrieval graph.
     """
     
-    def __init__(self, config: Dict[str, Any] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         """
         Initialize the relationship extractor with configuration.
         
@@ -31,17 +47,17 @@ class RelationshipExtractor:
             config: Configuration dictionary with options for relationship extraction
         """
         self.config = config or {}
-        self.nlp = None
-        self.initialized = False
+        self.nlp: Optional['Language'] = None
+        self.initialized: bool = False
         
         # Window size for co-occurrence relationships
-        self.co_occurrence_window = self.config.get("co_occurrence_window", 50)
+        self.co_occurrence_window: int = self.config.get("co_occurrence_window", 50)
         
         # Minimum frequency for relationship to be considered valid
-        self.min_relationship_frequency = self.config.get("min_relationship_frequency", 1)
+        self.min_relationship_frequency: int = self.config.get("min_relationship_frequency", 1)
         
         # Whether to extract dependency-based relationships
-        self.use_dependency_parsing = self.config.get("use_dependency_parsing", True)
+        self.use_dependency_parsing: bool = self.config.get("use_dependency_parsing", True)
         
         # Standard relationship types
         self.relationship_types = {
@@ -95,7 +111,15 @@ class RelationshipExtractor:
             self.initialize()
         
         # Process the text with spaCy
-        doc = self.nlp(text)
+        if self.nlp is None:
+            raise ValueError("NLP pipeline not initialized properly")
+            
+        # Safely process with NLP pipeline
+        try:
+            doc = self.nlp(text)
+        except Exception as e:
+            logger.error(f"Error processing text with spaCy: {e}")
+            return []
         
         # Create a mapping of entity spans to entity dictionaries
         entity_spans = {}
@@ -133,7 +157,7 @@ class RelationshipExtractor:
         
         return relationships
     
-    def _extract_co_occurrences(self, doc: Doc, entity_spans: Dict[Tuple[int, int], Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _extract_co_occurrences(self, doc: 'Doc', entity_spans: Dict[Tuple[int, int], Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Extract co-occurrence relationships between entities.
         
@@ -169,7 +193,7 @@ class RelationshipExtractor:
         
         return co_occurrences
     
-    def _extract_dependency_relations(self, doc: Doc, entity_spans: Dict[Tuple[int, int], Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _extract_dependency_relations(self, doc: 'Doc', entity_spans: Dict[Tuple[int, int], Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Extract relationships based on dependency parsing.
         

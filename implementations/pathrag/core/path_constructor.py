@@ -24,7 +24,7 @@ class PathConstructor:
     optimizing for semantic relevance and information value.
     """
     
-    def __init__(self, config: Dict[str, Any] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         """
         Initialize the path constructor with configuration.
         
@@ -44,6 +44,9 @@ class PathConstructor:
         
         # Whether to use relationship confidence in path ranking
         self.use_confidence_scores = self.config.get("use_confidence_scores", True)
+        
+        # Initialize graph
+        self.graph: Optional[nx.MultiDiGraph] = None
         
         # Weight factors for different relationship types
         self.relationship_weights = self.config.get("relationship_weights", {
@@ -83,7 +86,7 @@ class PathConstructor:
             NetworkX MultiDiGraph representing the entity-relationship graph
         """
         # Create a directed multigraph (allows multiple edges between same nodes)
-        G = nx.MultiDiGraph()
+        G: nx.MultiDiGraph = nx.MultiDiGraph()
         
         # Add entities as nodes
         for entity in entities:
@@ -130,11 +133,13 @@ class PathConstructor:
         """
         # Get relationship type weight
         rel_type = relationship["type"]
-        type_weight = self.relationship_weights.get(rel_type, self.default_relationship_weight)
+        type_weight: float = float(self.relationship_weights.get(rel_type, self.default_relationship_weight))
         
         # Get confidence score
-        confidence = relationship.get("confidence", 0.5)
+        confidence: float = float(relationship.get("confidence", 0.5))
         
+        # Calculate weight
+        weight: float
         if self.use_confidence_scores:
             # Combine type weight and confidence (higher confidence = lower edge weight)
             weight = 1.0 - (type_weight * confidence)
@@ -142,8 +147,8 @@ class PathConstructor:
             # Use only type weight
             weight = 1.0 - type_weight
         
-        # Ensure weight is positive
-        return max(0.01, weight)
+        # Ensure weight is positive and return explicitly as float
+        return float(max(0.01, weight))
     
     def construct_paths(
         self, query_entities: List[Dict[str, Any]], graph: Optional[nx.MultiDiGraph] = None

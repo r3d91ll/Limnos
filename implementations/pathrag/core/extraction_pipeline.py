@@ -8,7 +8,7 @@ relationship extraction, and path construction into a unified workflow.
 import os
 import json
 import logging
-from typing import List, Dict, Any, Optional, Union, Tuple
+from typing import List, Dict, Any, Optional, Union, Tuple, Set
 import networkx as nx
 from pathlib import Path
 
@@ -27,7 +27,7 @@ class ExtractionPipeline:
     and constructing paths from document content for path-based retrieval.
     """
     
-    def __init__(self, config: Dict[str, Any] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         """
         Initialize the extraction pipeline with configuration.
         
@@ -56,17 +56,20 @@ class ExtractionPipeline:
         self.save_intermediates = self.config.get("save_intermediates", False)
         
         # Graph built from processed documents
-        self.graph = None
+        self.graph: Optional[nx.MultiDiGraph] = None
         
         # Track processed documents to avoid duplicates
-        self.processed_document_ids = set()
+        self.processed_document_ids: Set[str] = set()
         
         # Metadata for all extracted components
-        self.metadata = {
-            "entities": {},  # entity_id -> entity_data
-            "relationships": {},  # relationship_id -> relationship_data
-            "paths": {},  # path_id -> path_data
-            "documents": {}  # document_id -> document_metadata
+        # Define a more specific type for the nested metadata structure
+        self.metadata: Dict[str, Any] = {
+            "entities": {},      # entity_id -> entity_data
+            "relationships": {}, # relationship_id -> relationship_data
+            "paths": {},        # path_id -> path_data
+            "documents": {},    # document_id -> document_metadata
+            "meta": {},         # metadata about this extraction
+            "stats": {}         # statistics about extraction results
         }
     
     def process_document(self, document: Dict[str, Any]) -> Dict[str, Any]:
@@ -162,9 +165,10 @@ class ExtractionPipeline:
         logger.info(f"Building graph with {len(all_entities)} entities and {len(all_relationships)} relationships")
         
         # Build the graph
-        self.graph = self.path_constructor.build_graph(all_entities, all_relationships)
+        graph: nx.MultiDiGraph = self.path_constructor.build_graph(all_entities, all_relationships)
+        self.graph = graph
         
-        return self.graph
+        return graph
     
     def extract_paths_for_query(self, query: str) -> Dict[str, Any]:
         """
@@ -310,7 +314,7 @@ class ExtractionPipeline:
         
         # Add timestamp
         import datetime
-        self.metadata["timestamp"] = datetime.datetime.now().isoformat()
+        self.metadata["meta"]["timestamp"] = datetime.datetime.now().isoformat()
         
         # Add stats
         self.metadata["stats"] = {

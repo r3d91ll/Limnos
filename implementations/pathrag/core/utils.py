@@ -64,7 +64,7 @@ def convert_graph_to_nx(entities: List[Dict[str, Any]], relationships: List[Dict
     Returns:
         NetworkX MultiDiGraph
     """
-    G = nx.MultiDiGraph()
+    G: nx.MultiDiGraph = nx.MultiDiGraph()
     
     # Add entities as nodes
     for entity in entities:
@@ -110,7 +110,7 @@ def visualize_paths(paths: List[Dict[str, Any]], output_file: Optional[str] = No
         import matplotlib.pyplot as plt
         
         # Create combined graph of all paths
-        G = nx.DiGraph()
+        G: nx.DiGraph = nx.DiGraph()
         
         for path in paths:
             for i in range(len(path["nodes"]) - 1):
@@ -122,7 +122,7 @@ def visualize_paths(paths: List[Dict[str, Any]], output_file: Optional[str] = No
                 target_text = next((n["text"] for n in path["node_data"] if n["id"] == target), target)
                 
                 # Get edge info
-                edge_info = next((e for e in path["edges"] if e["source"] == source and e["target"] == target), {})
+                edge_info: Dict[str, Any] = next((e for e in path["edges"] if e["source"] == source and e["target"] == target), {})
                 edge_type = edge_info.get("type", "RELATED_TO")
                 
                 # Add nodes and edge

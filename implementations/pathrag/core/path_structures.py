@@ -10,13 +10,14 @@ import numpy as np
 import json
 import pickle
 import os
-from pathlib import Path
-from typing import List, Dict, Any, Set, Tuple, Optional, Union, Callable, Iterable
+from pathlib import Path as FilePath
+from typing import List, Dict, Any, Set, Tuple, Optional, Union, Callable, Iterable, Type
 import logging
 import networkx as nx
 from collections import defaultdict
 import heapq
 import time
+import sys  # For sys.getsizeof in get_stats
 from dataclasses import dataclass, field, asdict
 
 # Configure logging
@@ -182,7 +183,7 @@ class Path:
     
     def to_networkx(self) -> nx.DiGraph:
         """Convert the path to a NetworkX directed graph."""
-        G = nx.DiGraph()
+        G: nx.DiGraph = nx.DiGraph()
         
         # Add nodes
         for node in self.nodes:
@@ -200,7 +201,7 @@ class PathIndex:
     Efficient index structure for paths, optimized for retrieval operations.
     """
     
-    def __init__(self, config: Dict[str, Any] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         """
         Initialize the path index with configuration.
         
@@ -459,7 +460,7 @@ class PathIndex:
         query_terms = self._extract_terms(query)
         
         # Score each path based on term overlap
-        path_scores = defaultdict(float)
+        path_scores: Dict[str, float] = defaultdict(float)
         
         for term in query_terms:
             matching_paths = self.term_to_paths.get(term, set())
@@ -696,7 +697,7 @@ class PathIndex:
             Path to the exported file
         """
         # Ensure directory exists
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        FilePath(os.path.dirname(filepath)).mkdir(parents=True, exist_ok=True)
         
         if format == 'json':
             # Export all paths as a JSON array

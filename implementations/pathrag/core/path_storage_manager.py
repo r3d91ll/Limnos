@@ -10,12 +10,13 @@ import os
 import json
 import logging
 import shutil
-from typing import List, Dict, Any, Set, Tuple, Optional, Union
+import numpy as np
+from typing import List, Dict, Any, Set, Tuple, Optional, Union, cast
 from pathlib import Path as FilePath
 import pickle
 import time
 
-from .path_structures import Path, PathNode, PathEdge, PathIndex
+from .path_structures import Path as RagPath, PathNode, PathEdge, PathIndex
 from .path_vector_store import PathVectorStore
 
 # Configure logging
@@ -30,7 +31,7 @@ class PathStorageManager:
     and maintains storage isolation for the PathRAG implementation.
     """
     
-    def __init__(self, config: Dict[str, Any] = None):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         """
         Initialize the path storage manager with configuration.
         
@@ -78,7 +79,7 @@ class PathStorageManager:
             'normalize_embeddings': self.config.get('normalize_embeddings', True)
         })
     
-    def save_path(self, path: Path, embed: bool = True) -> str:
+    def save_path(self, path: RagPath, embed: bool = True) -> str:
         """
         Save a path to the PathRAG-specific storage.
         
@@ -108,7 +109,7 @@ class PathStorageManager:
         logger.info(f"Saved path {path.id} to {filepath}")
         return filepath
     
-    def load_path(self, path_id: str) -> Optional[Path]:
+    def load_path(self, path_id: str) -> Optional[RagPath]:
         """
         Load a path from storage.
         
@@ -134,7 +135,7 @@ class PathStorageManager:
             with open(filepath, 'r', encoding='utf-8') as f:
                 path_data = json.load(f)
             
-            path = Path.from_dict(path_data)
+            path = RagPath.from_dict(path_data)
             
             # Add to index
             self.path_index.add_path(path)
@@ -175,7 +176,7 @@ class PathStorageManager:
             logger.warning(f"Path file {filepath} not found")
             return False
     
-    def save_all_paths(self, paths: List[Path], embed: bool = True) -> None:
+    def save_all_paths(self, paths: List[RagPath], embed: bool = True) -> None:
         """
         Save multiple paths to storage.
         
@@ -194,7 +195,7 @@ class PathStorageManager:
         self.save_index()
         self.save_vector_store()
     
-    def load_all_paths(self) -> List[Path]:
+    def load_all_paths(self) -> List[RagPath]:
         """
         Load all paths from storage.
         
@@ -262,7 +263,7 @@ class PathStorageManager:
         
         return self.vector_store
     
-    def get_path_by_entity(self, entity_text: str, case_sensitive: bool = False) -> List[Path]:
+    def get_path_by_entity(self, entity_text: str, case_sensitive: bool = False) -> List[RagPath]:
         """
         Get paths containing a specific entity.
         
@@ -275,7 +276,7 @@ class PathStorageManager:
         """
         return self.path_index.get_paths_by_entity(entity_text, case_sensitive)
     
-    def semantic_search(self, query: str, k: int = 10) -> List[Tuple[Path, float]]:
+    def semantic_search(self, query: str, k: int = 10) -> List[Tuple[RagPath, float]]:
         """
         Search for paths semantically similar to a query.
         
@@ -308,7 +309,7 @@ class PathStorageManager:
                         max_length: Optional[int] = None,
                         min_score: Optional[float] = None,
                         query: Optional[str] = None,
-                        k: int = 10) -> List[Path]:
+                        k: int = 10) -> List[RagPath]:
         """
         Advanced search with multiple criteria.
         
@@ -392,7 +393,8 @@ class PathStorageManager:
                 metadata = json.load(f)
             
             logger.info(f"Loaded universal metadata for document {document_id}")
-            return metadata
+            # Cast the result to the expected return type
+            return cast(Dict[str, Any], metadata)
             
         except Exception as e:
             logger.error(f"Error loading universal metadata for document {document_id}: {e}")

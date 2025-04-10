@@ -1,0 +1,111 @@
+{
+  "framework": "PathRAG",
+  "test_name": "embedding_storage",
+  "start_time": "2025-04-10T11:54:04.435181",
+  "end_time": "2025-04-10T11:54:05.211704",
+  "timing_metrics": {
+    "initialize_vector_store": {
+      "operation": "initialize_vector_store",
+      "start_time": 1744304044.4352686,
+      "end_time": 1744304045.1672935,
+      "duration_ms": 732.0249080657959
+    },
+    "store_embeddings": {
+      "operation": "store_embeddings",
+      "start_time": 1744304045.1673312,
+      "end_time": 1744304045.202788,
+      "duration_ms": 35.45689582824707
+    },
+    "clear_and_load": {
+      "operation": "clear_and_load",
+      "start_time": 1744304045.2028108,
+      "end_time": 1744304045.2037446,
+      "duration_ms": 0.9338855743408203
+    },
+    "retrieval": {
+      "operation": "retrieval",
+      "start_time": 1744304045.2037473,
+      "end_time": 1744304045.2115228,
+      "duration_ms": 7.775545120239258
+    }
+  },
+  "memory_metrics": {
+    "memory_initialization": {
+      "operation": "memory_initialization",
+      "start_memory_bytes": 1234378752,
+      "peak_memory_bytes": 5529913,
+      "end_memory_bytes": 1244930048,
+      "difference_bytes": 10551296
+    },
+    "memory_store": {
+      "operation": "memory_store",
+      "start_memory_bytes": 1244930048,
+      "peak_memory_bytes": 104711,
+      "end_memory_bytes": 1244930048,
+      "difference_bytes": 0
+    },
+    "memory_load": {
+      "operation": "memory_load",
+      "start_memory_bytes": 1244930048,
+      "peak_memory_bytes": 89911,
+      "end_memory_bytes": 1244930048,
+      "difference_bytes": 0
+    },
+    "memory_retrieval": {
+      "operation": "memory_retrieval",
+      "start_memory_bytes": 1244930048,
+      "peak_memory_bytes": 42303,
+      "end_memory_bytes": 1244930048,
+      "difference_bytes": 0
+    }
+  },
+  "storage_metrics": {
+    "embeddings_file": {
+      "component": "embeddings_file",
+      "path": "/tmp/tmpa8dc7plm/path_embeddings.pkl",
+      "size_bytes": 17705
+    }
+  },
+  "additional_metrics": {
+    "storage_results": {
+      "store": {
+        "save_path": "/tmp/tmpa8dc7plm/path_embeddings.pkl",
+        "num_embeddings": 5
+      },
+      "load": {
+        "after_clear": 0,
+        "after_load": 5
+      },
+      "retrieval": {
+        "semantic_search": [
+          {
+            "path_id": "path0",
+            "score": 0.6245638132095337
+          },
+          {
+            "path_id": "path1",
+            "score": 0.5993592143058777
+          },
+          {
+            "path_id": "path2",
+            "score": 0.5692408084869385
+          }
+        ],
+        "similar_paths": [
+          {
+            "path_id": "path3",
+            "score": 0.917109489440918
+          },
+          {
+            "path_id": "path1",
+            "score": 0.9155042171478271
+          },
+          {
+            "path_id": "path2",
+            "score": 0.9025292992591858
+          }
+        ]
+      }
+    }
+  }
+}

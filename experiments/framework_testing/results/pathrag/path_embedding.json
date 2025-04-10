@@ -1,0 +1,74 @@
+{
+  "framework": "PathRAG",
+  "test_name": "path_embedding",
+  "start_time": "2025-04-10T11:54:03.292572",
+  "end_time": "2025-04-10T11:54:04.434840",
+  "timing_metrics": {
+    "initialize_vector_store": {
+      "operation": "initialize_vector_store",
+      "start_time": 1744304043.2925766,
+      "end_time": 1744304044.4196842,
+      "duration_ms": 1127.1076202392578
+    },
+    "embed_short_path": {
+      "operation": "embed_short_path",
+      "start_time": 1744304044.4197156,
+      "end_time": 1744304044.4275875,
+      "duration_ms": 7.871866226196289
+    },
+    "embed_medium_path": {
+      "operation": "embed_medium_path",
+      "start_time": 1744304044.4275937,
+      "end_time": 1744304044.4347672,
+      "duration_ms": 7.1735382080078125
+    }
+  },
+  "memory_metrics": {
+    "memory_initialization": {
+      "operation": "memory_initialization",
+      "start_memory_bytes": 1221926912,
+      "peak_memory_bytes": 5529766,
+      "end_memory_bytes": 1234378752,
+      "difference_bytes": 12451840
+    },
+    "memory_embed_short_path": {
+      "operation": "memory_embed_short_path",
+      "start_memory_bytes": 1234378752,
+      "peak_memory_bytes": 42319,
+      "end_memory_bytes": 1234378752,
+      "difference_bytes": 0
+    },
+    "memory_embed_medium_path": {
+      "operation": "memory_embed_medium_path",
+      "start_memory_bytes": 1234378752,
+      "peak_memory_bytes": 42303,
+      "end_memory_bytes": 1234378752,
+      "difference_bytes": 0
+    }
+  },
+  "storage_metrics": {},
+  "additional_metrics": {
+    "path_embedding_results": {
+      "short_path": {
+        "path_text": "Neural Networks (is_related_to) Deep Learning",
+        "shape": [
+          384
+        ],
+        "mean": -0.00021672861475963145,
+        "std": 0.05103057622909546,
+        "min": -0.16563309729099274,
+        "max": 0.12170860916376114
+      },
+      "medium_path": {
+        "path_text": "Neural Networks (is_related_to) Deep Learning (is_subset_of) Machine Learning (is_subset_of) Artificial Intelligence",
+        "shape": [
+          384
+        ],
+        "mean": 2.510418880774523e-06,
+        "std": 0.05103103816509247,
+        "min": -0.14716002345085144,
+        "max": 0.1543145328760147
+      }
+    }
+  }
+}

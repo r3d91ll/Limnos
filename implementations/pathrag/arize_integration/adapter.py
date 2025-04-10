@@ -14,7 +14,7 @@ import json
 import logging
 import yaml
 import requests
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Union, cast, TYPE_CHECKING
 from datetime import datetime
 
 # Set up logging
@@ -99,10 +99,10 @@ class PathRAGArizeAdapter:
         try:
             with open(config_file, 'r') as f:
                 config = yaml.safe_load(f)
-            return config
+            return cast(Dict[str, Any], config)
         except Exception as e:
             logger.warning(f"Failed to load config file {config_file}: {e}")
-            return {}
+            return cast(Dict[str, Any], {})
     
     def _generate_ollama_response(self, prompt: str) -> str:
         """
@@ -137,14 +137,14 @@ class PathRAGArizeAdapter:
                 result = response.json()
                 generated_text = result.get("response", "")
                 logger.info(f"✅ Successfully generated response from Ollama")
-                return generated_text
+                return cast(str, generated_text)
             else:
                 logger.warning(f"⚠️ Ollama API returned status code: {response.status_code}")
                 logger.warning(f"⚠️ Response: {response.text}")
-                return f"Error: Failed to generate response from Ollama. Status code: {response.status_code}"
+                return cast(str, f"Error: Failed to generate response from Ollama. Status code: {response.status_code}")
         except Exception as e:
             logger.error(f"❌ Error calling Ollama API: {e}")
-            return f"Error: {str(e)}"
+            return cast(str, f"Error: {str(e)}")
     
     def _setup_telemetry(self):
         """
@@ -153,11 +153,13 @@ class PathRAGArizeAdapter:
         try:
             # Import required packages
             import requests
-            from opentelemetry import trace
-            from opentelemetry.sdk.resources import Resource
-            from opentelemetry.sdk.trace import TracerProvider
-            from opentelemetry.sdk.trace.export import BatchSpanProcessor
-            from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+            
+            # Import opentelemetry packages (they don't have type stubs)
+            from opentelemetry import trace  # type: ignore
+            from opentelemetry.sdk.resources import Resource  # type: ignore
+            from opentelemetry.sdk.trace import TracerProvider  # type: ignore
+            from opentelemetry.sdk.trace.export import BatchSpanProcessor  # type: ignore
+            from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter  # type: ignore
             
             # First check if Phoenix is actually running
             try:
@@ -200,7 +202,7 @@ class PathRAGArizeAdapter:
             
             # Try to instrument LangChain if it's being used
             try:
-                from openinference.instrumentation.langchain import LangChainInstrumentor
+                from openinference.instrumentation.langchain import LangChainInstrumentor  # type: ignore
                 LangChainInstrumentor().instrument()
                 logger.info("✅ Successfully instrumented LangChain for Phoenix telemetry")
             except ImportError:
@@ -215,7 +217,7 @@ class PathRAGArizeAdapter:
             logger.warning("Run: pip install opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp")
             raise e
     
-    def query(self, query: str, session_id: str = None, user_id: str = None, **kwargs) -> Dict[str, Any]:
+    def query(self, query: str, session_id: Optional[str] = None, user_id: Optional[str] = None, **kwargs) -> Dict[str, Any]:
         """
         Process a query using the PathRAG approach, retrieving relevant documents
         and generating a response. Also logs telemetry data to Phoenix.
